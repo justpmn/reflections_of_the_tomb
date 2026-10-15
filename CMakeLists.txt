@@ -106,3 +106,29 @@ add_test(
     NAME reflection_math
     COMMAND reflection_math_test
 )
+# --------------------------------------------------
+# Ray-plane intersection tests
+# --------------------------------------------------
+
+add_executable(
+    ray_plane_test
+    tests/ray_plane_test.cpp
+    src/physics/Intersections.cpp
+)
+
+target_include_directories(
+    ray_plane_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    ray_plane_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME ray_plane
+    COMMAND ray_plane_test
+)
