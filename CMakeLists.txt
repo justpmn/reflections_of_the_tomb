@@ -159,3 +159,24 @@ add_test(
     NAME single_mirror
     COMMAND single_mirror_test
 )
+# --------------------------------------------------
+# Level / LevelManager demo and test (Zahra)
+# --------------------------------------------------
+
+add_executable(
+    level_demo
+    src/world/level_demo.cpp
+    src/world/Level.cpp
+    src/world/LevelManager.cpp
+)
+
+target_include_directories(
+    level_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_test(
+    NAME level_demo
+    COMMAND level_demo
+)
