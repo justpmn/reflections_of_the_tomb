@@ -70,6 +70,8 @@ add_executable(
     src/main.cpp
     src/rendering/Renderer.cpp
     src/rendering/Shader.cpp
+    src/mirror/Mirror.cpp
+    src/mirror/MirrorSystem.cpp
 )
 
 target_include_directories(
