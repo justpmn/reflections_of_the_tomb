@@ -1,42 +1,60 @@
 # Reflections of the Tomb
+
 ## Overview
 
-**Reflections of the Tomb** is a puzzle game set in an ancient temple where players manipulate mirrors to redirect beams of light, solve puzzles, deactivate traps, and unlock pathways.
+**Reflections of the Tomb** is a 3D puzzle game set in an ancient temple where players manipulate mirrors to redirect beams of light, activate rubies, disable traps, and unlock pathways.
 
-The main objective is to guide light from fixed sources through a series of rotatable mirrors toward target rubies. Players must carefully adjust mirror orientations while avoiding dangerous beams and environmental traps.
+The objective is to solve increasingly challenging puzzles by controlling the path of light through multiple mirrors while avoiding environmental hazards.
 
-The project explores computer graphics concepts including geometric transformations, ray casting, reflection, collision detection, and real-time 3D rendering.
+The project applies computer graphics concepts including geometric transformations, line and polygon drawing, ray casting, reflection mathematics, collision detection, and real-time rendering.
 
-## Technologies
+## Team
 
-- **C++17** — Core game logic and graphics algorithms
-- **OpenGL 3.3** — Graphics rendering
-- **GLFW** — Window management and input handling
-- **GLAD** — OpenGL function loading
+| Member | Responsibility |
+|---|---|
+| Peter Nyamu | Light reflection, ray casting, and beam collisions |
+| Kimberly Wangari | Player movement and interactions |
+| Joe Senetwo | Mirror transformations and rotation |
+| Zahra Isaiho | Level design and temple environment |
+| Jesse Mbugua | Rubies, traps, doors, and puzzle mechanics |
+| Joe Ndeto | Rendering, lighting, shaders, and assets |
+
+## Tech Stack
+
+- **C++17** — Game logic and graphics algorithms
+- **OpenGL 3.3** — 3D rendering
+- **GLFW & GLAD** — Window management and OpenGL function loading
 - **GLM** — Vector and matrix mathematics
 - **GLSL** — Shader programming
 - **CMake & Ninja** — Build system
 - **Blender** — 3D asset creation and modification
 - **Git & GitHub** — Version control and collaboration
 
-## Light Reflection
+## Graphics Algorithms
 
-The game's central mechanic uses ray casting and the law of reflection to calculate how light interacts with mirrors.
+The following graphics techniques have been implemented:
 
-The reflected direction is calculated using:
+- **Bresenham's Line Algorithm:** Integer-based line drawing.
+- **Polygon Representation:** Constructing objects from vertices and edges.
+- **Scanline Polygon Filling:** Filling polygon interiors using the even-odd rule.
+- **Geometric Translation:** Moving doors, traps, and other graphical objects.
+- **Boundary Clipping:** Restricting pixel operations to valid image coordinates.
+- **Ray-Plane Intersection:** Calculating where a ray intersects a surface.
+- **Light Reflection:** Calculating reflected directions using surface normals.
 
-**R = D − 2(D · N)N**
+The reflection equation is:
 
-Where:
-- **D** — Incoming ray direction
-- **N** — Mirror surface normal
-- **R** — Reflected ray direction
+\[
+R = D - 2(D \cdot N)N
+\]
 
-Ray-plane intersections determine where a beam hits a mirror. The resulting direction can then be used to trace subsequent reflections.
+Where `D` is the incoming ray direction, `N` is the surface normal, and `R` is the reflected direction.
 
-## Installation and Setup
+The repository also includes Pure C++ graphics demonstrations of simplified temple objects, including a ruby, door, and spike traps.
 
-### Prerequisites
+## Build and Run
+
+### Requirements
 
 - C++17-compatible compiler (MSYS2 UCRT64 GCC)
 - CMake 3.20+
@@ -44,7 +62,7 @@ Ray-plane intersections determine where a beam hits a mirror. The resulting dire
 - Python with Jinja2
 - OpenGL 3.3-compatible graphics driver
 
-### Build
+### Build the Game
 
 From the project root, configure CMake:
 
@@ -52,13 +70,13 @@ From the project root, configure CMake:
 cmake -S . -B build -G Ninja -DCMAKE_MAKE_PROGRAM=C:/msys64/ucrt64/bin/ninja.exe -DCMAKE_C_COMPILER=C:/msys64/ucrt64/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe -DPython_EXECUTABLE=C:/msys64/ucrt64/bin/python.exe
 ```
 
-Compile the project:
+Build:
 
 ```powershell
 cmake --build build
 ```
 
-### Run
+Run:
 
 ```powershell
 .\build\reflections_of_the_tomb.exe
@@ -66,20 +84,36 @@ cmake --build build
 
 Press **ESC** to close the application.
 
+### Run the Pure C++ Graphics Demo
+
+```powershell
+cd experiments/software_raster_demo
+g++ -std=c++17 -O2 main.cpp -o tomb_graphics.exe
+.\tomb_graphics.exe
+```
+
+The program generates `tomb_graphics.ppm`, containing graphical representations of the game objects.
+
 ## Test Scripts
 
-The project includes tests for ray intersection and reflection calculations.
+The project includes automated tests for the reflection system.
 
 | Test | Description |
 |---|---|
-| `reflection_math` | Verifies reflected ray directions |
+| `reflection_math` | Tests reflected ray calculations |
 | `ray_plane` | Tests ray-plane intersections |
 | `single_mirror` | Tests single-mirror reflection and beam segments |
 
-Run all tests:
+Run all tests from the project root:
 
 ```powershell
 ctest --test-dir build --output-on-failure
+```
+
+Run the standalone Pure C++ graphics tests from its directory:
+
+```powershell
+.\tomb_graphics.exe --self-test
 ```
 
 ## Project Structure
@@ -88,14 +122,14 @@ ctest --test-dir build --output-on-failure
 reflectionsofthetomb/
 ├── src/
 │   ├── main.cpp
-│   ├── core/          # Application management
-│   ├── physics/       # Ray intersections and collisions
-│   ├── beam/          # Beam tracing and reflections
-│   ├── mirror/        # Mirror transformations
-│   ├── player/        # Player movement and interaction
-│   ├── world/         # Temple environment and levels
-│   ├── gameplay/      # Rubies, traps and puzzle logic
-│   └── rendering/     # Rendering and shaders
+│   ├── core/
+│   ├── beam/
+│   ├── physics/
+│   ├── mirror/
+│   ├── player/
+│   ├── world/
+│   ├── gameplay/
+│   └── rendering/
 ├── assets/
 │   ├── models/
 │   ├── textures/
@@ -108,16 +142,10 @@ reflectionsofthetomb/
 └── README.md
 ```
 
-## Assets and Credits
+## Progress and Limitations
 
-Third-party assets are credited to their respective creators and used according to their licensing terms.
+The project currently has a working OpenGL application, a modular codebase, Pure C++ graphics demonstrations, and tested reflection mathematics. Ray-plane intersections and single-mirror reflections have been implemented and verified using automated tests.
 
-| Asset | Creator | Source | License |
-|---|---|---|---|
-| To be added | — | — | — |
+The main game is still under development. Multiple-mirror propagation, finite mirror collisions, visual beam rendering, player interactions, and complete 3D environment integration are not yet finished.
 
-Asset credits will be updated as resources are incorporated into the project.
-
----
-
-**Reflections of the Tomb** — Built with C++ and OpenGL.
+**Reflections of the Tomb** — C++ / OpenGL
