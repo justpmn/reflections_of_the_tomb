@@ -1,56 +1,123 @@
-# Reflections of the Tomb: C++ pixel graphics
+# Reflections of the Tomb
+## Overview
 
-A standalone C++17 program using only the standard library. No renderer or
-graphics library is required. It writes `tomb_graphics.ppm`, showing all three
-tasks and their states side by side.
+**Reflections of the Tomb** is a puzzle game set in an ancient temple where players manipulate mirrors to redirect beams of light, solve puzzles, deactivate traps, and unlock pathways.
 
-![Rendered example](tomb_graphics.png)
+The main objective is to guide light from fixed sources through a series of rotatable mirrors toward target rubies. Players must carefully adjust mirror orientations while avoiding dangerous beams and environmental traps.
 
-`tomb_graphics.png` is an included convenience preview of the PPM output.
-The C++ program itself writes PPM and requires no image conversion library.
+The project explores computer graphics concepts including geometric transformations, ray casting, reflection, collision detection, and real-time 3D rendering.
 
-## Build and run (PowerShell with MinGW GCC)
+## Technologies
+
+- **C++17** — Core game logic and graphics algorithms
+- **OpenGL 3.3** — Graphics rendering
+- **GLFW** — Window management and input handling
+- **GLAD** — OpenGL function loading
+- **GLM** — Vector and matrix mathematics
+- **GLSL** — Shader programming
+- **CMake & Ninja** — Build system
+- **Blender** — 3D asset creation and modification
+- **Git & GitHub** — Version control and collaboration
+
+## Light Reflection
+
+The game's central mechanic uses ray casting and the law of reflection to calculate how light interacts with mirrors.
+
+The reflected direction is calculated using:
+
+**R = D − 2(D · N)N**
+
+Where:
+- **D** — Incoming ray direction
+- **N** — Mirror surface normal
+- **R** — Reflected ray direction
+
+Ray-plane intersections determine where a beam hits a mirror. The resulting direction can then be used to trace subsequent reflections.
+
+## Installation and Setup
+
+### Prerequisites
+
+- C++17-compatible compiler (MSYS2 UCRT64 GCC)
+- CMake 3.20+
+- Ninja
+- Python with Jinja2
+- OpenGL 3.3-compatible graphics driver
+
+### Build
+
+From the project root, configure CMake:
 
 ```powershell
-g++ -std=c++17 -Wall -Wextra -Wpedantic -O2 main.cpp -o tomb_graphics.exe
-.\tomb_graphics.exe
-.\tomb_graphics.exe --self-test
+cmake -S . -B build -G Ninja -DCMAKE_MAKE_PROGRAM=C:/msys64/ucrt64/bin/ninja.exe -DCMAKE_C_COMPILER=C:/msys64/ucrt64/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe -DPython_EXECUTABLE=C:/msys64/ucrt64/bin/python.exe
 ```
 
-An optional first argument changes the output path:
+Compile the project:
 
 ```powershell
-.\tomb_graphics.exe my_scene.ppm
+cmake --build build
 ```
 
-On Linux/macOS use the same compiler flags, output `tomb_graphics`, and run
-`./tomb_graphics`. Open the image in a PPM-compatible viewer such as GIMP or
-IrfanView. P6 PPM has a short ASCII header followed by RGB pixel bytes.
+### Run
 
-## Implementation
+```powershell
+.\build\reflections_of_the_tomb.exe
+```
 
-- **Ruby:** `drawRuby()` explicitly defines boundary vertices `(210,125)`,
-  `(300,125)`, `(345,170)`, `(255,260)`, `(165,170)`. It fills the polygon red
-  and adds red polygon facets.
-- **Temple door:** `drawDoor()` creates a rectangular door. `translate()` uses
-  `x' = x + dx`, `y' = y + dy`. The closed position has `(dx,dy) = (0,0)`;
-  the open position has `(0,-100)`, sliding upward to reveal the passage.
-  The two panels use different display origins but identical door geometry.
-  Decorations move with the door.
-- **Spike trap:** `drawSpikes()` draws five filled triangular polygons.
-  Activated spikes extend 60 pixels above the floor. Deactivated spikes move
-  down 50 pixels, leaving 10-pixel tips visible. A foreground floor polygon
-  hides the portions below the floor.
+Press **ESC** to close the application.
 
-`Image::setPixel()` clips writes to the image. `line()` implements integer
-Bresenham line drawing in all octants. `polygon()` connects consecutive
-vertices and closes the outline. `fill()` sorts scanline edge intersections
-and fills alternating spans using the even-odd rule, including concave polygons.
-It samples pixel centers and uses half-open edge intervals to avoid counting
-shared vertices twice. Horizontal edges are skipped during intersection tests.
+## Test Scripts
 
-Coordinates start at the top-left: x increases rightward and y downward.
-Labels use a built-in bitmap alphabet drawn through `setPixel()`.
+The project includes tests for ray intersection and reflection calculations.
 
-The `--self-test` option checks line octants, concave filling, clipping, and
-translation without writing an image.
+| Test | Description |
+|---|---|
+| `reflection_math` | Verifies reflected ray directions |
+| `ray_plane` | Tests ray-plane intersections |
+| `single_mirror` | Tests single-mirror reflection and beam segments |
+
+Run all tests:
+
+```powershell
+ctest --test-dir build --output-on-failure
+```
+
+## Project Structure
+
+```text
+reflectionsofthetomb/
+├── src/
+│   ├── main.cpp
+│   ├── core/          # Application management
+│   ├── physics/       # Ray intersections and collisions
+│   ├── beam/          # Beam tracing and reflections
+│   ├── mirror/        # Mirror transformations
+│   ├── player/        # Player movement and interaction
+│   ├── world/         # Temple environment and levels
+│   ├── gameplay/      # Rubies, traps and puzzle logic
+│   └── rendering/     # Rendering and shaders
+├── assets/
+│   ├── models/
+│   ├── textures/
+│   └── audio/
+├── shaders/
+├── tests/
+├── experiments/
+├── docs/
+├── CMakeLists.txt
+└── README.md
+```
+
+## Assets and Credits
+
+Third-party assets are credited to their respective creators and used according to their licensing terms.
+
+| Asset | Creator | Source | License |
+|---|---|---|---|
+| To be added | — | — | — |
+
+Asset credits will be updated as resources are incorporated into the project.
+
+---
+
+**Reflections of the Tomb** — Built with C++ and OpenGL.

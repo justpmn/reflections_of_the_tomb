@@ -77,3 +77,85 @@ target_link_libraries(
         glad_gl_core_33
         glm::glm
 )
+
+# --------------------------------------------------
+# Beam reflection tests
+# --------------------------------------------------
+
+enable_testing()
+
+add_executable(
+    reflection_math_test
+    tests/reflection_math_test.cpp
+    src/beam/BeamSystem.cpp
+)
+
+target_include_directories(
+    reflection_math_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    reflection_math_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME reflection_math
+    COMMAND reflection_math_test
+)
+# --------------------------------------------------
+# Ray-plane intersection tests
+# --------------------------------------------------
+
+add_executable(
+    ray_plane_test
+    tests/ray_plane_test.cpp
+    src/physics/Intersections.cpp
+)
+
+target_include_directories(
+    ray_plane_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    ray_plane_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME ray_plane
+    COMMAND ray_plane_test
+)
+# --------------------------------------------------
+# Single-mirror integration test
+# --------------------------------------------------
+
+add_executable(
+    single_mirror_test
+    tests/single_mirror_test.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+)
+
+target_include_directories(
+    single_mirror_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    single_mirror_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME single_mirror
+    COMMAND single_mirror_test
+)
