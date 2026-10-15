@@ -68,6 +68,8 @@ glad_add_library(
 add_executable(
     reflections_of_the_tomb
     src/main.cpp
+    src/mirror/Mirror.cpp
+    src/mirror/MirrorSystem.cpp
 )
 
 target_link_libraries(
