@@ -132,3 +132,30 @@ add_test(
     NAME ray_plane
     COMMAND ray_plane_test
 )
+# --------------------------------------------------
+# Single-mirror integration test
+# --------------------------------------------------
+
+add_executable(
+    single_mirror_test
+    tests/single_mirror_test.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+)
+
+target_include_directories(
+    single_mirror_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    single_mirror_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME single_mirror
+    COMMAND single_mirror_test
+)
