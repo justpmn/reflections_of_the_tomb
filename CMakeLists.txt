@@ -77,3 +77,24 @@ target_link_libraries(
         glad_gl_core_33
         glm::glm
 )
+# --------------------------------------------------
+# Level / LevelManager demo and test (Zahra)
+# --------------------------------------------------
+
+add_executable(
+    level_demo
+    src/world/level_demo.cpp
+    src/world/Level.cpp
+    src/world/LevelManager.cpp
+)
+
+target_include_directories(
+    level_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_test(
+    NAME level_demo
+    COMMAND level_demo
+)
