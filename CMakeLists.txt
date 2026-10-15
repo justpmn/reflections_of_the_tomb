@@ -77,3 +77,32 @@ target_link_libraries(
         glad_gl_core_33
         glm::glm
 )
+
+# --------------------------------------------------
+# Beam reflection tests
+# --------------------------------------------------
+
+enable_testing()
+
+add_executable(
+    reflection_math_test
+    tests/reflection_math_test.cpp
+    src/beam/BeamSystem.cpp
+)
+
+target_include_directories(
+    reflection_math_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    reflection_math_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME reflection_math
+    COMMAND reflection_math_test
+)
