@@ -65,6 +65,7 @@ glad_add_library(
 # Executable
 # --------------------------------------------------
 
+
 add_executable(
     reflections_of_the_tomb
     src/main.cpp
@@ -72,6 +73,14 @@ add_executable(
     src/rendering/Shader.cpp
     src/mirror/Mirror.cpp
     src/mirror/MirrorSystem.cpp
+
+    # Gameplay components
+    src/gameplay/Ruby.cpp
+    src/gameplay/Trap.cpp
+    src/gameplay/Door.cpp
+    src/gameplay/PuzzleSystem.cpp
+    src/gameplay/RubyCollision.cpp
+    
 )
 
 target_include_directories(
@@ -189,4 +198,36 @@ target_include_directories(
 add_test(
     NAME level_demo
     COMMAND level_demo
+)
+
+
+# Puzzle and beam integration test
+
+
+add_executable(
+    reflected_ruby_test
+    tests/reflected_ruby_test.cpp
+    src/beam/BeamSystem.cpp
+    src/gameplay/PuzzleSystem.cpp
+    src/gameplay/Ruby.cpp
+    src/gameplay/Trap.cpp
+    src/gameplay/Door.cpp
+    src/gameplay/RubyCollision.cpp
+)
+
+target_include_directories(
+    reflected_ruby_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    reflected_ruby_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME reflected_ruby
+    COMMAND reflected_ruby_test
 )
