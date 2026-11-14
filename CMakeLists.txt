@@ -71,6 +71,7 @@ add_executable(
     src/main.cpp
     src/rendering/Renderer.cpp
     src/rendering/Shader.cpp
+    src/rendering/Model.cpp
     src/mirror/Mirror.cpp
     src/mirror/MirrorSystem.cpp
 
