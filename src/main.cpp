@@ -93,8 +93,10 @@ int main()
 
         bool key1 = glfwGetKey(
             window, GLFW_KEY_1) == GLFW_PRESS;
+
         bool key2 = glfwGetKey(
             window, GLFW_KEY_2) == GLFW_PRESS;
+
         bool keyR = glfwGetKey(
             window, GLFW_KEY_R) == GLFW_PRESS;
 
@@ -181,6 +183,7 @@ int main()
     }
 
     renderer.shutdown();
+
     glfwDestroyWindow(window);
     glfwTerminate();
 
