@@ -3,28 +3,46 @@
 
 #include <iostream>
 
-Renderer::~Renderer() {
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+Renderer::~Renderer()
+{
     shutdown();
 }
 
-bool Renderer::initialize() {
-    if (initialized) {
+bool Renderer::initialize()
+{
+    if (initialized)
+    {
         return true;
     }
 
-    // Load and link the vertex and fragment shaders.
+    // Load the existing 2D shaders.
     if (!shader.loadFromFiles(
-            "shaders/basic.vert",
-            "shaders/basic.frag")) {
-        std::cerr << "Failed to load rendering shaders.\n";
+        "shaders/basic.vert",
+        "shaders/basic.frag"))
+    {
+        std::cerr << "Failed to load 2D shaders.\n";
         return false;
     }
 
-    // Create the OpenGL vertex array and vertex buffer.
+    // Load the new 3D model shaders.
+    if (!modelShader.loadFromFiles(
+        "shaders/model.vert",
+        "shaders/model.frag"))
+    {
+        std::cerr << "Failed to load 3D model shaders.\n";
+        shader.destroy();
+        return false;
+    }
+
+    // Create the 2D rectangle buffers.
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
-    if (VAO == 0 || VBO == 0) {
+    if (VAO == 0 || VBO == 0)
+    {
         std::cerr << "Failed to create rendering buffers.\n";
         shutdown();
         return false;
@@ -33,7 +51,6 @@ bool Renderer::initialize() {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    // Reserve space for six vertices each with three coordinates.
     glBufferData(
         GL_ARRAY_BUFFER,
         18 * sizeof(float),
@@ -41,26 +58,47 @@ bool Renderer::initialize() {
         GL_DYNAMIC_DRAW
     );
 
-    // Tell OpenGL how to read each vertex position.
     glVertexAttribPointer(
         0, 3, GL_FLOAT, GL_FALSE,
         3 * sizeof(float), nullptr
     );
+
     glEnableVertexAttribArray(0);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    // Configure the 3D camera.
+    viewMatrix = glm::lookAt(
+        glm::vec3(0.0f, 2.0f, 5.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+
+    projectionMatrix = glm::perspective(
+        glm::radians(45.0f),
+        1280.0f / 720.0f,
+        0.1f,
+        100.0f
+    );
+
     initialized = true;
+
     std::cout << "Renderer initialized successfully.\n";
 
     return true;
 }
 
-void Renderer::beginFrame() {
-    
+void Renderer::beginFrame()
+{
+    glEnable(GL_DEPTH_TEST);
+
     glClearColor(0.05f, 0.04f, 0.08f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+
+    glClear(
+        GL_COLOR_BUFFER_BIT |
+        GL_DEPTH_BUFFER_BIT
+    );
 }
 
 void Renderer::drawRectangle(
@@ -70,13 +108,13 @@ void Renderer::drawRectangle(
     float height,
     float red,
     float green,
-    float blue
-) {
-    if (!initialized) {
+    float blue)
+{
+    if (!initialized)
+    {
         return;
     }
 
-    // Six vertices form two triangles, creating a rectangle.
     const float vertices[] = {
         x,          y,           0.0f,
         x + width,  y,           0.0f,
@@ -89,15 +127,17 @@ void Renderer::drawRectangle(
 
     shader.use();
 
-    // Set the rectangle's color.
     GLint colorLocation =
         glGetUniformLocation(shader.ID, "uColor");
 
-    if (colorLocation != -1) {
-        glUniform4f(colorLocation, red, green, blue, 1.0f);
+    if (colorLocation != -1)
+    {
+        glUniform4f(
+            colorLocation,
+            red, green, blue, 1.0f
+        );
     }
 
-    // Upload the rectangle vertices and draw them.
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
@@ -114,17 +154,89 @@ void Renderer::drawRectangle(
     glBindVertexArray(0);
 }
 
-void Renderer::shutdown() {
-    if (VBO != 0) {
+void Renderer::drawModel(
+    const Model& model,
+    const glm::mat4& transform,
+    const glm::vec3& color)
+{
+    if (!initialized)
+    {
+        return;
+    }
+
+    modelShader.use();
+
+    GLint modelLocation =
+        glGetUniformLocation(modelShader.ID, "model");
+
+    GLint viewLocation =
+        glGetUniformLocation(modelShader.ID, "view");
+
+    GLint projectionLocation =
+        glGetUniformLocation(modelShader.ID, "projection");
+
+    GLint colorLocation =
+        glGetUniformLocation(modelShader.ID, "uColor");
+
+    if (modelLocation != -1)
+    {
+        glUniformMatrix4fv(
+            modelLocation,
+            1,
+            GL_FALSE,
+            glm::value_ptr(transform)
+        );
+    }
+
+    if (viewLocation != -1)
+    {
+        glUniformMatrix4fv(
+            viewLocation,
+            1,
+            GL_FALSE,
+            glm::value_ptr(viewMatrix)
+        );
+    }
+
+    if (projectionLocation != -1)
+    {
+        glUniformMatrix4fv(
+            projectionLocation,
+            1,
+            GL_FALSE,
+            glm::value_ptr(projectionMatrix)
+        );
+    }
+
+    if (colorLocation != -1)
+    {
+        glUniform3f(
+            colorLocation,
+            color.r,
+            color.g,
+            color.b
+        );
+    }
+
+    model.draw();
+}
+
+void Renderer::shutdown()
+{
+    if (VBO != 0)
+    {
         glDeleteBuffers(1, &VBO);
         VBO = 0;
     }
 
-    if (VAO != 0) {
+    if (VAO != 0)
+    {
         glDeleteVertexArrays(1, &VAO);
         VAO = 0;
     }
 
     shader.destroy();
+    modelShader.destroy();
+
     initialized = false;
 }

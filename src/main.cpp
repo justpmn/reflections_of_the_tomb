@@ -1,9 +1,12 @@
-
 #include <iostream>
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "rendering/Renderer.h"
+#include "rendering/Model.h"
 #include "gameplay/PuzzleSystem.h"
 
 void framebufferSizeCallback(
@@ -68,6 +71,34 @@ int main()
         glfwTerminate();
         return -1;
     }
+
+    // Load the 3D mirror model.
+    Model mirrorModel;
+    bool mirrorLoaded = mirrorModel.load(
+        "assets/models/mirrors/mirror_complete.glb"
+    );
+
+    if (mirrorLoaded)
+    {
+        std::cout << "3D mirror model loaded successfully!\n";
+    }
+    else
+    {
+        std::cerr << "Failed to load 3D mirror model\n";
+    }
+
+    // Initial mirror position and scale.
+    glm::mat4 mirrorTransform = glm::mat4(1.0f);
+
+    mirrorTransform = glm::translate(
+        mirrorTransform,
+        glm::vec3(0.5f, 0.0f, 0.0f)
+    );
+
+    mirrorTransform = glm::scale(
+        mirrorTransform,
+        glm::vec3(0.5f, 0.5f, 0.5f)
+    );
 
     PuzzleSystem puzzle;
 
@@ -179,9 +210,21 @@ int main()
             );
         }
 
+        // Render the 3D mirror.
+        if (mirrorLoaded)
+        {
+            renderer.drawModel(
+                mirrorModel,
+                mirrorTransform,
+                glm::vec3(0.8f, 0.8f, 0.8f)
+            );
+        }
+
         glfwSwapBuffers(window);
     }
 
+    // Clean up while the OpenGL context is still active.
+    mirrorModel.cleanup();
     renderer.shutdown();
 
     glfwDestroyWindow(window);
