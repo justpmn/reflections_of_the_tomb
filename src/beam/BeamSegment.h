@@ -1,3 +1,10 @@
-﻿#pragma once
+﻿
+#pragma once
 
-// TODO: Define BeamSegment
+#include <glm/glm.hpp>
+
+struct BeamSegment
+{
+    glm::vec3 start;
+    glm::vec3 end;
+};

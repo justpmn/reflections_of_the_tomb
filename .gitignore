@@ -1,2 +1,6 @@
 *.exe
 build/
+
+# Blender backup files
+*.blend[0-9]*
+/build-desktop/
