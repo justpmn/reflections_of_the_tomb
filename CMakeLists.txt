@@ -395,7 +395,6 @@ add_executable(
     src/beam/BeamSystem.cpp
     src/physics/Intersections.cpp
     src/mirror/Mirror.cpp
-    src/gameplay/RubyCollision.cpp
     src/rendering/Shader.cpp
 )
 
