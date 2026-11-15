@@ -19,6 +19,10 @@ void framebufferSizeCallback(
 
 int main()
 {
+    // ==========================================
+    // INITIALIZE GLFW
+    // ==========================================
+
     if (!glfwInit())
     {
         std::cerr << "Failed to initialize GLFW\n";
@@ -35,7 +39,7 @@ int main()
 
     GLFWwindow* window = glfwCreateWindow(
         1280, 720,
-        "Reflections of the Tomb - Puzzle Demo",
+        "Reflections of the Tomb",
         nullptr, nullptr
     );
 
@@ -47,6 +51,10 @@ int main()
     }
 
     glfwMakeContextCurrent(window);
+
+    // ==========================================
+    // INITIALIZE GLAD
+    // ==========================================
 
     if (!gladLoadGL(
         reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)))
@@ -68,7 +76,10 @@ int main()
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
 
-    // Initialize renderer.
+    // ==========================================
+    // INITIALIZE RENDERER
+    // ==========================================
+
     Renderer renderer;
 
     if (!renderer.initialize())
@@ -82,7 +93,7 @@ int main()
     }
 
     // ==========================================
-    // LOAD 3D MIRROR MODEL
+    // LOAD MIRROR MODEL
     // ==========================================
 
     Model mirrorModel;
@@ -93,14 +104,13 @@ int main()
 
     if (mirrorLoaded)
     {
-        std::cout << "3D mirror model loaded successfully!\n";
+        std::cout << "Mirror model loaded successfully!\n";
     }
     else
     {
-        std::cerr << "Failed to load 3D mirror model\n";
+        std::cerr << "Failed to load mirror model!\n";
     }
 
-    // Position and scale the mirror.
     glm::mat4 mirrorTransform(1.0f);
 
     mirrorTransform = glm::translate(
@@ -114,7 +124,7 @@ int main()
     );
 
     // ==========================================
-    // LOAD KAYKIT DUNGEON FLOOR
+    // LOAD DUNGEON FLOOR
     // ==========================================
 
     Model floorModel;
@@ -134,13 +144,26 @@ int main()
         std::cerr << "Failed to load dungeon floor!\n";
     }
 
-    // Position and scale the dungeon floor.
-    glm::mat4 floorTransform(1.0f);
+    // ==========================================
+    // LOAD TEMPLE WALLS
+    // ==========================================
 
-    floorTransform = glm::translate(
-        floorTransform,
-        glm::vec3(0.0f, -0.5f, 0.0f)
+    Model wallModel;
+
+    bool wallsLoaded = wallModel.load(
+        "assets/vendor/kaykit_dungeon/"
+        "KayKit_Dungeon_Pack_1.1_FREE/"
+        "Assets/gltf/wall.gltf"
     );
+
+    if (wallsLoaded)
+    {
+        std::cout << "Temple wall model loaded successfully!\n";
+    }
+    else
+    {
+        std::cerr << "Failed to load temple wall model!\n";
+    }
 
     // ==========================================
     // INITIALIZE PUZZLE
@@ -182,7 +205,7 @@ int main()
         bool keyR = glfwGetKey(
             window, GLFW_KEY_R) == GLFW_PRESS;
 
-        // Respond once per key press.
+        // Handle puzzle input.
         if (key1 && !previous1)
         {
             puzzle.hitRuby(false);
@@ -206,22 +229,153 @@ int main()
         previousR = keyR;
 
         // ======================================
-        // RENDER FRAME
+        // BEGIN FRAME
         // ======================================
 
         renderer.beginFrame();
 
-        // Render the textured dungeon floor first.
+        // ======================================
+        // RENDER 3 X 3 DUNGEON FLOOR
+        // ======================================
+
         if (floorLoaded)
         {
-            renderer.drawModel(
-                floorModel,
-                floorTransform,
-                glm::vec3(1.0f, 1.0f, 1.0f)
-            );
+            for (int x = -1; x <= 1; x++)
+            {
+                for (int z = -1; z <= 1; z++)
+                {
+                    glm::mat4 tileTransform(1.0f);
+
+                    tileTransform = glm::translate(
+                        tileTransform,
+                        glm::vec3(
+                            x * 4.0f,
+                            -0.5f,
+                            z * 4.0f
+                        )
+                    );
+
+                    renderer.drawModel(
+                        floorModel,
+                        tileTransform,
+                        glm::vec3(1.0f, 1.0f, 1.0f)
+                    );
+                }
+            }
         }
 
-        // Real ruby: red until puzzle solved.
+        // ======================================
+        // RENDER BACK WALL
+        // ======================================
+
+        if (wallsLoaded)
+        {
+            for (int i = -1; i <= 1; i++)
+            {
+                glm::mat4 backWall(1.0f);
+
+                backWall = glm::translate(
+                    backWall,
+                    glm::vec3(
+                        i * 4.0f,
+                        -0.5f,
+                        -6.5f
+                    )
+                );
+
+                renderer.drawModel(
+                    wallModel,
+                    backWall,
+                    glm::vec3(1.0f)
+                );
+            }
+
+            // ==================================
+            // RENDER LEFT AND RIGHT WALLS
+            // ==================================
+
+            for (int i = -1; i <= 1; i++)
+            {
+                // Left wall.
+                glm::mat4 leftWall(1.0f);
+
+                leftWall = glm::translate(
+                    leftWall,
+                    glm::vec3(
+                        -6.5f,
+                        -0.5f,
+                        i * 4.0f
+                    )
+                );
+
+                leftWall = glm::rotate(
+                    leftWall,
+                    glm::radians(90.0f),
+                    glm::vec3(0.0f, 1.0f, 0.0f)
+                );
+
+                renderer.drawModel(
+                    wallModel,
+                    leftWall,
+                    glm::vec3(1.0f)
+                );
+
+                // Right wall.
+                glm::mat4 rightWall(1.0f);
+
+                rightWall = glm::translate(
+                    rightWall,
+                    glm::vec3(
+                        6.5f,
+                        -0.5f,
+                        i * 4.0f
+                    )
+                );
+
+                rightWall = glm::rotate(
+                    rightWall,
+                    glm::radians(90.0f),
+                    glm::vec3(0.0f, 1.0f, 0.0f)
+                );
+
+                renderer.drawModel(
+                    wallModel,
+                    rightWall,
+                    glm::vec3(1.0f)
+                );
+            }
+
+            // ==================================
+            // FRONT WALL
+            // Leave the centre open for entry.
+            // ==================================
+
+            for (int i : {-1, 1})
+            {
+                glm::mat4 frontWall(1.0f);
+
+                frontWall = glm::translate(
+                    frontWall,
+                    glm::vec3(
+                        i * 4.0f,
+                        -0.5f,
+                        6.5f
+                    )
+                );
+
+                renderer.drawModel(
+                    wallModel,
+                    frontWall,
+                    glm::vec3(1.0f)
+                );
+            }
+        }
+
+        // ======================================
+        // RENDER EXISTING PUZZLE PLACEHOLDERS
+        // ======================================
+
+        // Real ruby.
         if (puzzle.isSolved())
         {
             renderer.drawRectangle(
@@ -237,13 +391,13 @@ int main()
             );
         }
 
-        // False ruby: purple.
+        // False ruby.
         renderer.drawRectangle(
             -0.2f, 0.2f, 0.3f, 0.3f,
             0.6f, 0.1f, 0.8f
         );
 
-        // Door: brown when closed, green when open.
+        // Door placeholder.
         if (puzzle.isDoorOpen())
         {
             renderer.drawRectangle(
@@ -259,7 +413,7 @@ int main()
             );
         }
 
-        // Trap: red when active, gray when safe.
+        // Trap placeholder.
         if (puzzle.areTrapsActive())
         {
             renderer.drawRectangle(
@@ -275,7 +429,10 @@ int main()
             );
         }
 
-        // Render the 3D mirror.
+        // ======================================
+        // RENDER 3D MIRROR
+        // ======================================
+
         if (mirrorLoaded)
         {
             renderer.drawModel(
@@ -285,15 +442,19 @@ int main()
             );
         }
 
+        // ======================================
+        // END FRAME
+        // ======================================
+
         glfwSwapBuffers(window);
     }
 
     // ==========================================
-    // CLEANUP
+    // CLEANUP OPENGL RESOURCES
     // ==========================================
 
-    // Delete model resources while OpenGL is active.
     floorModel.cleanup();
+    wallModel.cleanup();
     mirrorModel.cleanup();
 
     renderer.shutdown();

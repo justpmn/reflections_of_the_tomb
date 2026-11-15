@@ -27,7 +27,7 @@ bool Renderer::initialize()
         return false;
     }
 
-    // Load the new 3D model shaders.
+    // Load the 3D model shaders.
     if (!modelShader.loadFromFiles(
         "shaders/model.vert",
         "shaders/model.frag"))
@@ -68,9 +68,9 @@ bool Renderer::initialize()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    // Configure the 3D camera.
+    // Configure the camera for the expanded temple floor.
     viewMatrix = glm::lookAt(
-        glm::vec3(0.0f, 2.0f, 5.0f),
+        glm::vec3(0.0f, 7.0f, 12.0f),
         glm::vec3(0.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
@@ -134,7 +134,10 @@ void Renderer::drawRectangle(
     {
         glUniform4f(
             colorLocation,
-            red, green, blue, 1.0f
+            red,
+            green,
+            blue,
+            1.0f
         );
     }
 
