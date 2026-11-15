@@ -590,3 +590,27 @@ target_link_libraries(
         glad_gl_core_33
         glm::glm
 )
+
+# --------------------------------------------------
+# 2D raster experiments (Zahra) - pure C++, no GLM/OpenGL
+# --------------------------------------------------
+
+# Old 2D chamber renderer (namespace world2d), writes level1.ppm / level2.ppm
+add_executable(
+    level_demo
+    experiments/level_raster_demo/level_demo.cpp
+    experiments/level_raster_demo/Level.cpp
+    experiments/level_raster_demo/LevelManager.cpp
+)
+
+add_test(
+    NAME level_demo
+    COMMAND level_demo
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Environment prototype: Bresenham + scanline fill, writes environment.ppm
+add_executable(
+    environment_demo
+    experiments/environment_demo/environment.cpp
+)
