@@ -151,7 +151,8 @@ void testLevel(const std::string& file)
     check(scene.count(AssetId::Wall) == wallFaces - doorFaces,
           tag + "one wall per visible wall face (hidden and door-side faces skipped)");
     check(scene.count(AssetId::Pillar) == pillars, tag + "pillar count");
-    check(scene.count(AssetId::Doorway) == L.doors.size(), tag + "doorway count");
+    check(scene.count(AssetId::TempleDoor) == L.doors.size(), tag + "one temple door per door cell");
+    check(scene.count(AssetId::Doorway) == 0, tag + "KayKit doorway only used as the door's fallback");
     check(scene.count(AssetId::Mirror) == L.mirrors.size(), tag + "mirror count");
     check(scene.count(AssetId::RubyPedestal) == L.rubies.size(), tag + "ruby count");
     check(scene.count(AssetId::SpikeTrap) == L.traps.size(), tag + "spike trap count");
@@ -219,6 +220,42 @@ void testLevel(const std::string& file)
             mirrorsOk = false;
     }
     check(mirrorsOk, tag + "mirror model faces mirrorNormal(startAngle)");
+
+    // ---- door: temple_door facing into the room, wall_doorway fallback ----
+    bool doorsOk = true;
+    for (const Placement& p : scene.placements)
+    {
+        if (p.asset != AssetId::TempleDoor)
+            continue;
+        const AssetInfo& fb = assetInfo(AssetId::Doorway);
+        if (p.fallback != AssetId::Doorway || !nearVec(apply(p.fallbackTransform, assetPivot(fb)), p.anchor))
+            doorsOk = false;
+
+        // Model +Z (front) must point at the open cell inside the temple.
+        glm::vec3 front = glm::normalize(glm::vec3(p.transform * glm::vec4(0, 0, 1, 0)));
+        glm::ivec2 inside = p.cell + glm::ivec2((int)std::round(front.x), (int)std::round(front.z));
+        if (!L.inBounds(inside) || L.tileAt(inside) == Tile::Wall)
+            doorsOk = false;
+
+        // Both models fit the cell and reach the wall top.
+        for (const glm::mat4* m : {&p.transform, &p.fallbackTransform})
+        {
+            const AssetInfo& a = (m == &p.transform) ? assetInfo(p.asset) : fb;
+            glm::vec3 c = L.cellCenter(p.cell);
+            for (int i = 0; i < 8; ++i)
+            {
+                glm::vec3 corner((i & 1) ? a.boundsMax.x : a.boundsMin.x, (i & 2) ? a.boundsMax.y : a.boundsMin.y,
+                                 (i & 4) ? a.boundsMax.z : a.boundsMin.z);
+                glm::vec3 w = apply(*m, corner) - c;
+                if (std::abs(w.x) > 0.5f * cs + 1e-3f || std::abs(w.z) > 0.5f * cs + 1e-3f ||
+                    w.y > L.wallHeight + 1e-3f)
+                    doorsOk = false;
+            }
+            if (std::abs(apply(*m, {0.0f, a.boundsMax.y, 0.0f}).y - L.wallHeight) > 1e-3f)
+                doorsOk = false;
+        }
+    }
+    check(doorsOk, tag + "temple door faces into the room, fits the cell, fallback lands on the same spot");
 }
 
 void testCutaway()
@@ -234,7 +271,7 @@ void testCutaway()
     bool ok = true, sawLow = false;
     for (const Placement& p : cut.placements)
     {
-        if (p.asset != AssetId::Wall && p.asset != AssetId::Doorway)
+        if (p.asset != AssetId::Wall && p.asset != AssetId::TempleDoor)
             continue;
         const AssetInfo& a = assetInfo(p.asset);
         float top = apply(p.transform, {0.0f, a.boundsMax.y, 0.0f}).y;
@@ -245,7 +282,7 @@ void testCutaway()
             ok = false;
         sawLow = sawLow || facesAway;
     }
-    check(ok && sawLow, "Cutaway lowers only walls/doorway facing away from the camera");
+    check(ok && sawLow, "Cutaway lowers only walls/door facing away from the camera");
 }
 
 void testShowcaseCamera(const std::string& file)

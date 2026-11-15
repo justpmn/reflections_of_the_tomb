@@ -31,6 +31,8 @@ std::vector<AssetInfo> makeTable() {
          {-2.0f, -2.0f, -2.0f}, {2.0f, 0.1f, 2.0f}, Pivot::TopCentre, 1.0f, false},
         {AssetId::Torch, "torch_mounted", KAYKIT "torch_mounted.gltf",
          {-0.275f, -0.381f, 0.0f}, {0.275f, 0.682f, 0.616f}, Pivot::BackCentre, 0.3f, false},
+        {AssetId::TempleDoor, "temple_door", "assets/models/door/temple_door.glb",
+         {-2.0f, 0.0f, -0.5f}, {2.0f, 4.0f, 0.5f}, Pivot::BaseCentre, 1.0f, true},
     };
 }
 
@@ -150,7 +152,12 @@ LevelScene buildLevelScene(const Level& L, const LevelSceneOptions& opt) {
                         break;
                     }
                 }
-                add(AssetId::Doorway, cell, -1, centre, yaw, low ? opt.cutawayHeight : 1.0f);
+                // Team door model, facing into the temple; KayKit doorway if it can't load.
+                float h = low ? opt.cutawayHeight : 1.0f;
+                add(AssetId::TempleDoor, cell, -1, centre, yaw, h);
+                out.placements.back().fallback = AssetId::Doorway;
+                out.placements.back().fallbackTransform =
+                    place(assetInfo(AssetId::Doorway), L, centre, yaw, h);
             }
         }
     }

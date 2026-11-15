@@ -94,7 +94,7 @@ const world::Level& L = levels.current();
 | floor cell (not pit / trap) | KayKit `floor_tile_large` | cell centre, top flush with y = 0 |
 | visible wall face | KayKit `wall` | one slab per face that touches open space, flush with the cell edge, facing the room; hidden walls and faces towards a door cell are skipped |
 | `P` pillar | KayKit `pillar_decorated` | cell centre, half a cell wide, floor to ceiling |
-| `D` door | KayKit `wall_doorway` | door cell, facing into the temple |
+| `D` door | `models/door/temple_door.glb` (team door) | door cell, facing into the temple; if the file fails to load, KayKit `wall_doorway` is drawn in the same spot (`Placement::fallback`) |
 | `M` mirror | `models/mirrors/mirror_complete.glb` | cell centre, rotated to its **start** angle (45 = `\`, model +Z = `mirrorNormal(a)`) |
 | `R` ruby | `models/ruby/ruby_pedestal_floating.glb` | cell centre |
 | `T` trap | `models/traps/spike_trap.glb` | replaces the floor tile |

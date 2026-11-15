@@ -25,7 +25,8 @@ public:
 
     // Loads every asset in assetTable(). assetRoot is prepended to each path
     // ("" = the working directory, i.e. the repo root when running the game).
-    // Returns false if any asset failed; the ones that loaded are still drawn.
+    // Returns false if any asset failed; the ones that loaded are still drawn, and a
+    // placement whose model failed uses its fallback (temple_door -> wall_doorway).
     bool load(const std::string& assetRoot = "");
 
     // levelToWorld places the whole level in the game world (see levelToArea()).

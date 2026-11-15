@@ -27,6 +27,7 @@ enum class AssetId {
     RubyPedestal,
     SpikeTrap,
     Torch,
+    TempleDoor,   // the team's door model; Doorway is its fallback
     Count
 };
 
@@ -60,6 +61,11 @@ struct Placement {
     glm::ivec2 cell;        // the cell this placement belongs to
     int        face = -1;   // wall/torch: side of `cell` it sits on (0=N 1=E 2=S 3=W), else -1
     glm::vec3  anchor;      // level-space point the asset's pivot lands on
+
+    // Drawn instead of `asset` if that model fails to load (Count = no fallback).
+    // Fitted separately, so its pivot also lands on `anchor`.
+    AssetId    fallback = AssetId::Count;
+    glm::mat4  fallbackTransform{1.0f};
 };
 
 struct LevelSceneOptions {
@@ -80,8 +86,8 @@ struct LevelScene {
 
 // Floor tiles on open cells (not on pits or traps), one wall slab per visible wall face
 // (hidden walls and faces towards a door cell are skipped - the doorway model fills that
-// cell), pillars, doorway, mirrors at their start angle, rubies, spike traps and a few
-// wall torches.
+// cell), pillars, the temple door (KayKit doorway as fallback), mirrors at their start
+// angle, rubies, spike traps and a few wall torches.
 LevelScene buildLevelScene(const Level& lvl, const LevelSceneOptions& opt = {});
 
 // Maps level space into a square area of the game world: the level's centre goes to
