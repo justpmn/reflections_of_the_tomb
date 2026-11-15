@@ -146,6 +146,23 @@ int main()
         std::cerr << "Failed to load temple wall model!\n";
 
     // ==========================================
+    // LOAD TEMPLE PILLARS
+    // ==========================================
+
+    Model pillarModel;
+
+    bool pillarsLoaded = pillarModel.load(
+        "assets/vendor/kaykit_dungeon/"
+        "KayKit_Dungeon_Pack_1.1_FREE/"
+        "Assets/gltf/pillar.gltf"
+    );
+
+    if (pillarsLoaded)
+        std::cout << "Temple pillars loaded successfully!\n";
+    else
+        std::cerr << "Failed to load temple pillars!\n";
+
+    // ==========================================
     // LOAD 3D TEMPLE DOOR
     // ==========================================
 
@@ -352,6 +369,37 @@ int main()
         }
 
         // ======================================
+        // RENDER FOUR TEMPLE PILLARS
+        // ======================================
+
+        if (pillarsLoaded)
+        {
+            const glm::vec3 pillarPositions[] =
+            {
+                glm::vec3(-5.0f, -0.5f,  5.0f),
+                glm::vec3( 5.0f, -0.5f,  5.0f),
+                glm::vec3(-5.0f, -0.5f, -5.0f),
+                glm::vec3( 5.0f, -0.5f, -5.0f)
+            };
+
+            for (const glm::vec3& position : pillarPositions)
+            {
+                glm::mat4 pillarTransform(1.0f);
+
+                pillarTransform = glm::translate(
+                    pillarTransform,
+                    position
+                );
+
+                renderer.drawModel(
+                    pillarModel,
+                    pillarTransform,
+                    glm::vec3(1.0f)
+                );
+            }
+        }
+
+        // ======================================
         // RENDER 3D TEMPLE DOOR
         // ======================================
 
@@ -432,6 +480,7 @@ int main()
 
     floorModel.cleanup();
     wallModel.cleanup();
+    pillarModel.cleanup();
     mirrorModel.cleanup();
     doorModel.cleanup();
 
