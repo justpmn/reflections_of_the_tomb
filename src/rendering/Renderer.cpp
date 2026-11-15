@@ -219,16 +219,10 @@ namespace
             glGetUniformLocation(shader.ID, "uShininess");
 
         if (lightDirectionLocation != -1)
-            glUniform3f(
-                lightDirectionLocation,
-                -0.5f, 1.0f, 0.5f
-            );
+            glUniform3f(lightDirectionLocation, -0.5f, 1.0f, 0.5f);
 
         if (viewPositionLocation != -1)
-            glUniform3f(
-                viewPositionLocation,
-                0.0f, 7.0f, 12.0f
-            );
+            glUniform3f(viewPositionLocation, 0.0f, 7.0f, 12.0f);
 
         if (ambientLocation != -1)
             glUniform1f(ambientLocation, 0.35f);
@@ -327,6 +321,17 @@ bool Renderer::initialize()
     {
         std::cerr << "Failed to load 3D model shaders.\n";
         shader.destroy();
+        return false;
+    }
+
+    // Load dedicated beam shaders.
+    if (!beamShader.loadFromFiles(
+        "shaders/beam.vert",
+        "shaders/beam.frag"))
+    {
+        std::cerr << "Failed to load beam shaders.\n";
+        shader.destroy();
+        modelShader.destroy();
         return false;
     }
 
@@ -665,22 +670,70 @@ void Renderer::drawBeam(
         glm::vec3(thickness, beamLength, thickness)
     );
 
-    modelShader.use();
-    setLightingUniforms(modelShader);
+    // Use the dedicated emissive beam shader.
+    beamShader.use();
 
-    GLint hasTextureLocation =
-        glGetUniformLocation(modelShader.ID, "uHasTexture");
+    GLint modelLocation =
+        glGetUniformLocation(beamShader.ID, "model");
 
-    if (hasTextureLocation != -1)
-        glUniform1i(hasTextureLocation, GL_FALSE);
+    GLint viewLocation =
+        glGetUniformLocation(beamShader.ID, "view");
 
-    setModelUniforms(
-        modelShader,
-        beamTransform,
-        viewMatrix,
-        projectionMatrix,
-        color
-    );
+    GLint projectionLocation =
+        glGetUniformLocation(beamShader.ID, "projection");
+
+    GLint colorLocation =
+        glGetUniformLocation(beamShader.ID, "uBeamColor");
+
+    GLint intensityLocation =
+        glGetUniformLocation(beamShader.ID, "uIntensity");
+
+    if (modelLocation != -1)
+    {
+        glUniformMatrix4fv(
+            modelLocation,
+            1,
+            GL_FALSE,
+            glm::value_ptr(beamTransform)
+        );
+    }
+
+    if (viewLocation != -1)
+    {
+        glUniformMatrix4fv(
+            viewLocation,
+            1,
+            GL_FALSE,
+            glm::value_ptr(viewMatrix)
+        );
+    }
+
+    if (projectionLocation != -1)
+    {
+        glUniformMatrix4fv(
+            projectionLocation,
+            1,
+            GL_FALSE,
+            glm::value_ptr(projectionMatrix)
+        );
+    }
+
+    if (colorLocation != -1)
+    {
+        glUniform3f(
+            colorLocation,
+            color.r,
+            color.g,
+            color.b
+        );
+    }
+
+    if (intensityLocation != -1)
+        glUniform1f(intensityLocation, 2.5f);
+
+    // Additive blending creates a brighter emissive appearance.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
     glBindVertexArray(beamVAO);
 
@@ -691,6 +744,8 @@ void Renderer::drawBeam(
     );
 
     glBindVertexArray(0);
+
+    glDisable(GL_BLEND);
 }
 
 // Draw multiple beam segments.
@@ -766,6 +821,7 @@ void Renderer::shutdown()
 
     shader.destroy();
     modelShader.destroy();
+    beamShader.destroy();
 
     pedestalVertexCount = 0;
     crystalVertexCount = 0;

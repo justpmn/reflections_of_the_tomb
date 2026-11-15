@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿
+#pragma once
 
 #include "Shader.h"
 #include "Model.h"
@@ -27,33 +28,31 @@ public:
         float blue);
 
     void drawModel(
-        const Model &model,
-        const glm::mat4 &modelMatrix,
-        const glm::vec3 &color);
+        const Model& model,
+        const glm::mat4& modelMatrix,
+        const glm::vec3& color);
 
-    // Draw one selected mesh using its own transform.
     void drawModelMesh(
-        const Model &model,
+        const Model& model,
         unsigned int meshIndex,
-        const glm::mat4 &modelMatrix,
-        const glm::vec3 &color);
+        const glm::mat4& modelMatrix,
+        const glm::vec3& color);
 
-    // Draw a procedural gemstone and its stone pedestal.
     void drawGemstone(
-        const glm::mat4 &transform,
-        const glm::vec3 &crystalColor);
+        const glm::mat4& transform,
+        const glm::vec3& crystalColor);
 
-    // Draw a 3D light beam between two positions.
+    // Draw one glowing 3D beam segment.
     void drawBeam(
-        const glm::vec3 &start,
-        const glm::vec3 &end,
-        const glm::vec3 &color,
+        const glm::vec3& start,
+        const glm::vec3& end,
+        const glm::vec3& color,
         float thickness);
 
-    // Draw multiple segments of a reflected light beam.
+    // Draw multiple connected beam segments.
     void drawBeamSegments(
-        const std::vector<BeamSegment> &segments,
-        const glm::vec3 &color,
+        const std::vector<BeamSegment>& segments,
+        const glm::vec3& color,
         float thickness);
 
     void shutdown();
@@ -61,6 +60,9 @@ public:
 private:
     Shader shader;
     Shader modelShader;
+
+    // Dedicated magical beam shader.
+    Shader beamShader;
 
     // 2D rectangle buffers.
     unsigned int VAO = 0;
