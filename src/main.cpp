@@ -27,6 +27,10 @@
 #include "world/LevelSceneRenderer.h"
 constexpr bool kDrawLevelScene = true;
 
+// Zahra: true = show only the level (skips the HUD rectangles and the placeholder
+// mirror model). Their code is unchanged, just wrapped in if-checks.
+constexpr bool kShowcaseLevelOnly = false;
+
 void framebufferSizeCallback(
     GLFWwindow *window, int width, int height)
 {
@@ -342,6 +346,8 @@ bool previousE = false;
         if (kDrawLevelScene)
             levelSceneRenderer.draw(renderer, levelScene, levelToWorld);
 
+        if (!kShowcaseLevelOnly) // Zahra: showcase flag, HUD block unchanged
+        {
         // Temporary HUD state indicators (not world-space ruby positions).
         // Real ruby indicator: red until puzzle solved, green when solved.
         if (puzzle.isSolved())
@@ -389,7 +395,10 @@ bool previousE = false;
                 -0.7f, -0.7f, 0.8f, 0.2f,
                 0.4f, 0.4f, 0.4f);
         }
+        } // end showcase flag (HUD)
 
+        if (!kShowcaseLevelOnly) // Zahra: showcase flag, placeholder mirror unchanged
+        {
         // Render the 3D mirror (debug/placeholder model, independent of physics mirrors).
         if (mirrorLoaded)
         {
@@ -398,6 +407,7 @@ bool previousE = false;
                 mirrorTransform,
                 glm::vec3(0.8f, 0.8f, 0.8f));
         }
+        } // end showcase flag (placeholder mirror)
 // Render the Ranger at its updated 3D position.
 if (rangerLoaded)
 {
