@@ -1,6 +1,7 @@
 // LevelScene tests (Zahra): placements match the level, land on the right cells,
 // and every asset in the table exists with the measured size.
 
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
 #include <filesystem>
@@ -10,12 +11,14 @@
 #include <vector>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #define CGLTF_IMPLEMENTATION
 #include "third_party/cgltf.h"
 
 #include "world/Level.h"
 #include "world/LevelScene.h"
+#include "world/ShowcaseCamera.h"
 #include "world/TempleMesh.h"
 
 using namespace world;
@@ -245,6 +248,59 @@ void testCutaway()
     check(ok && sawLow, "Cutaway lowers only walls/doorway facing away from the camera");
 }
 
+void testShowcaseCamera(const std::string& file)
+{
+    LoadResult r = loadLevelFromFile(std::string(LEVELS_DIR) + "/" + file);
+    const Level& L = r.level;
+    const std::string tag = L.name + ": ";
+    const float fov = 45.0f, aspect = 1280.0f / 720.0f;   // same as Renderer
+    glm::mat4 levelToWorld = levelToArea(L, {0.0f, 0.0f}, 4.0f);
+    ShowcaseCamera cam = ShowcaseCamera::fitLevel(L, levelToWorld, fov, aspect);
+    glm::mat4 proj = glm::perspective(glm::radians(fov), aspect, 0.1f, 100.0f);
+
+    bool allOnScreen = true, tight = true;
+    for (float yaw : {0.0f, 30.0f, 45.0f, 90.0f, 180.0f, 270.0f})
+        for (float pitch : {15.0f, 45.0f, 60.0f, 85.0f})
+        {
+            cam.yawDeg = yaw;
+            cam.pitchDeg = pitch;
+            float maxNdc = 0.0f;
+            for (int i = 0; i < 8; ++i)
+            {
+                glm::vec3 c((i & 1) ? L.width * L.cellSize : 0.0f, (i & 2) ? L.wallHeight : 0.0f,
+                            (i & 4) ? L.height * L.cellSize : 0.0f);
+                glm::vec4 clip = proj * cam.view() * levelToWorld * glm::vec4(c, 1.0f);
+                glm::vec3 ndc = glm::vec3(clip) / clip.w;
+                if (clip.w <= 0.0f || std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f || std::abs(ndc.z) > 1.0f)
+                    allOnScreen = false;
+                maxNdc = std::max({maxNdc, std::abs(ndc.x), std::abs(ndc.y)});
+            }
+            if (maxNdc < 0.9f)
+                tight = false;
+        }
+    check(allOnScreen, tag + "showcase camera fits the whole level at every yaw/pitch");
+    check(tight, tag + "showcase camera frames the level tightly (reaches 90% of the screen edge)");
+
+    cam.reset();
+    glm::vec3 toEye = cam.eye() - cam.target;
+    check(nearVec(glm::normalize(glm::vec3(toEye.x, 0, toEye.z)),
+                  {cam.towardCamera().x, 0.0f, cam.towardCamera().y}),
+          tag + "towardCamera points from the level to the eye");
+
+    cam.orbit(0.0f, 500.0f);
+    cam.zoomBy(100.0f);
+    check(cam.pitchDeg == ShowcaseCamera::kMaxPitch && cam.zoom == ShowcaseCamera::kMaxZoom,
+          tag + "pitch and zoom are clamped");
+}
+
+void testCutawayThreshold()
+{
+    LoadResult r = loadLevelFromFile(std::string(LEVELS_DIR) + "/level01.txt");
+    const Level& L = r.level;   // wall 3.0, cell 2.0 -> threshold atan(1.5) = 56.3 deg
+    check(cutawayNeeded(L, 45.0f) && cutawayNeeded(L, 56.0f), "Cutaway needed below ~56 deg (level01)");
+    check(!cutawayNeeded(L, 57.0f) && !cutawayNeeded(L, 85.0f), "No cutaway when the camera sees over walls");
+}
+
 void testLevelToArea()
 {
     LoadResult r = loadLevelFromFile(std::string(LEVELS_DIR) + "/level01.txt");
@@ -265,6 +321,10 @@ int main()
         testLevel("level02.txt");
         testLevel("level03.txt");
         testCutaway();
+        testCutawayThreshold();
+        testShowcaseCamera("level01.txt");
+        testShowcaseCamera("level02.txt");
+        testShowcaseCamera("level03.txt");
         testLevelToArea();
     }
     catch (const std::exception& e)

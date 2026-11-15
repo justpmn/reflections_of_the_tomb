@@ -16,6 +16,10 @@ public:
     // Clear the screen for a new frame.
     void beginFrame();
 
+    // Replace the camera (view matrix) used by 3D drawing. The default camera
+    // set in initialize() is used until this is called. (Zahra, showcase camera)
+    void setViewMatrix(const glm::mat4& view);
+
     // Draw a colored 2D rectangle.
     void drawRectangle(
         float x,

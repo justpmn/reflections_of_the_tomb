@@ -25,11 +25,15 @@
 #include "world/LevelManager.h"
 #include "world/LevelScene.h"
 #include "world/LevelSceneRenderer.h"
+#include "world/ShowcaseCamera.h"
 constexpr bool kDrawLevelScene = true;
 
-// Zahra: true = show only the level (skips the HUD rectangles and the placeholder
-// mirror model). Their code is unchanged, just wrapped in if-checks.
-constexpr bool kShowcaseLevelOnly = false;
+// Zahra: showcase mode for videos. true = skip the HUD rectangles and the
+// placeholder mirror model (their code is unchanged, just wrapped in if-checks)
+// and use an orbit camera that frames the whole level:
+//   Left/Right = orbit, Up/Down = raise/lower, +/- = zoom, C = reset camera.
+// false = the original fixed camera and demo view.
+constexpr bool kShowcaseLevelOnly = true;
 
 void framebufferSizeCallback(
     GLFWwindow *window, int width, int height)
@@ -144,6 +148,7 @@ else
     world::LevelScene levelScene;
     world::LevelSceneRenderer levelSceneRenderer;
     glm::mat4 levelToWorld(1.0f);
+    bool levelReady = false;
 
     if (kDrawLevelScene)
     {
@@ -157,6 +162,7 @@ else
             levelSceneRenderer.load();
             levelToWorld = world::levelToArea(
                 levels.current(), glm::vec2(0.0f), 4.0f);
+            levelReady = true;
         }
         else
         {
@@ -164,6 +170,11 @@ else
                 std::cerr << e << '\n';
         }
     }
+
+    // Zahra: showcase orbit camera (fov/aspect match Renderer::initialize).
+    world::ShowcaseCamera showcaseCamera = world::ShowcaseCamera::fitLevel(
+        levels.current(), levelToWorld, 45.0f, 1280.0f / 720.0f);
+    glm::vec2 builtCutaway(0.0f, 1.0f);   // cutaway the current levelScene was built with
 
     // Initial mirror position and scale.
     glm::mat4 mirrorTransform = glm::mat4(1.0f);
@@ -341,6 +352,43 @@ bool previousE = false;
         }
 
         previousSolved = puzzle.isSolved();
+        // Zahra: showcase camera controls + cutaway that follows the camera.
+        if (kShowcaseLevelOnly && levelReady)
+        {
+            auto down = [&](int key)
+            { return glfwGetKey(window, key) == GLFW_PRESS; };
+
+            float yawInput = 0.0f, pitchInput = 0.0f;
+            if (down(GLFW_KEY_LEFT))  yawInput -= 1.0f;
+            if (down(GLFW_KEY_RIGHT)) yawInput += 1.0f;
+            if (down(GLFW_KEY_UP))    pitchInput += 1.0f;
+            if (down(GLFW_KEY_DOWN))  pitchInput -= 1.0f;
+            showcaseCamera.orbit(60.0f * yawInput * dt, 40.0f * pitchInput * dt);
+
+            if (down(GLFW_KEY_EQUAL) || down(GLFW_KEY_KP_ADD))
+                showcaseCamera.zoomBy(std::exp(-1.0f * dt));
+            if (down(GLFW_KEY_MINUS) || down(GLFW_KEY_KP_SUBTRACT))
+                showcaseCamera.zoomBy(std::exp(1.0f * dt));
+            if (down(GLFW_KEY_C))
+                showcaseCamera.reset();
+
+            renderer.setViewMatrix(showcaseCamera.view());
+
+            // Cut away walls between the camera and the room only when the
+            // camera is too low to see over them; rebuild when that changes.
+            glm::vec2 wantCutaway(0.0f);
+            if (world::cutawayNeeded(levels.current(), showcaseCamera.pitchDeg))
+                wantCutaway = showcaseCamera.towardCamera();
+
+            if (glm::length(wantCutaway - builtCutaway) > 1e-3f)
+            {
+                world::LevelSceneOptions sceneOptions;
+                sceneOptions.cutawayToward = wantCutaway;
+                levelScene = world::buildLevelScene(levels.current(), sceneOptions);
+                builtCutaway = wantCutaway;
+            }
+        }
+
         renderer.beginFrame();
 
         if (kDrawLevelScene)

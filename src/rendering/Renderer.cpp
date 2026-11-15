@@ -89,6 +89,11 @@ bool Renderer::initialize()
     return true;
 }
 
+void Renderer::setViewMatrix(const glm::mat4& view)
+{
+    viewMatrix = view;
+}
+
 void Renderer::beginFrame()
 {
     glEnable(GL_DEPTH_TEST);

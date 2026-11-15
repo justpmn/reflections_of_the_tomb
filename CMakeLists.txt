@@ -100,6 +100,7 @@ add_executable(
     src/world/LevelManager.cpp
     src/world/LevelScene.cpp
     src/world/LevelSceneRenderer.cpp
+    src/world/ShowcaseCamera.cpp
 )
 
 # Copy level files next to the executable: <build>/levels/level01.txt ...
@@ -252,6 +253,7 @@ add_executable(
     src/world/Level.cpp
     src/world/TempleMesh.cpp
     src/world/LevelScene.cpp
+    src/world/ShowcaseCamera.cpp
 )
 
 target_include_directories(
