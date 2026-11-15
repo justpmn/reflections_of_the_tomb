@@ -232,3 +232,218 @@ add_test(
     NAME reflected_ruby
     COMMAND reflected_ruby_test
 )
+
+# --------------------------------------------------
+# Finite mirror intersection tests (Peter)
+# --------------------------------------------------
+
+add_executable(
+    ray_segment_test
+    tests/ray_segment_test.cpp
+    src/physics/Intersections.cpp
+)
+
+target_include_directories(
+    ray_segment_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    ray_segment_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME ray_segment
+    COMMAND ray_segment_test
+)
+# --------------------------------------------------
+# Multi-mirror beam tracing tests (Peter)
+# --------------------------------------------------
+
+add_executable(
+    multi_mirror_test
+    tests/multi_mirror_test.cpp
+    src/beam/BeamTracer.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+    src/mirror/Mirror.cpp
+)
+
+target_include_directories(
+    multi_mirror_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    multi_mirror_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME multi_mirror
+    COMMAND multi_mirror_test
+)
+# --------------------------------------------------
+# Wall collision and nearest-hit tests (Peter)
+# --------------------------------------------------
+
+add_executable(
+    wall_collision_test
+    tests/wall_collision_test.cpp
+    src/beam/BeamTracer.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+    src/mirror/Mirror.cpp
+)
+
+target_include_directories(
+    wall_collision_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    wall_collision_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME wall_collision
+    COMMAND wall_collision_test
+)
+# --------------------------------------------------
+# Beam and puzzle integration tests
+# --------------------------------------------------
+
+add_executable(
+    beam_puzzle_integration_test
+    tests/beam_puzzle_integration_test.cpp
+
+    src/beam/BeamTracer.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+    src/mirror/Mirror.cpp
+
+    src/gameplay/BeamPuzzleBridge.cpp
+    src/gameplay/PuzzleSystem.cpp
+    src/gameplay/RubyCollision.cpp
+    src/gameplay/Ruby.cpp
+    src/gameplay/Door.cpp
+    src/gameplay/Trap.cpp
+)
+
+target_include_directories(
+    beam_puzzle_integration_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    beam_puzzle_integration_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME beam_puzzle_integration
+    COMMAND beam_puzzle_integration_test
+)
+# --------------------------------------------------
+# Player and beam collision tests (Peter)
+# --------------------------------------------------
+
+add_executable(
+    beam_player_collision_test
+    tests/beam_player_collision_test.cpp
+    src/physics/BeamPlayerCollision.cpp
+    src/beam/BeamTracer.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+    src/mirror/Mirror.cpp
+)
+
+target_include_directories(
+    beam_player_collision_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    beam_player_collision_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME beam_player_collision
+    COMMAND beam_player_collision_test
+)
+# --------------------------------------------------
+# Interactive beam visualization demo (Peter)
+# --------------------------------------------------
+
+add_executable(
+    beam_visual_demo
+    src/beam/beam_visual_demo.cpp
+    src/beam/BeamTracer.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+    src/mirror/Mirror.cpp
+    src/gameplay/RubyCollision.cpp
+    src/rendering/Shader.cpp
+)
+
+target_include_directories(
+    beam_visual_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    beam_visual_demo
+    PRIVATE
+        glfw
+        glad_gl_core_33
+        glm::glm
+)
+# --------------------------------------------------
+# Ruby absorption and puzzle activation tests
+# --------------------------------------------------
+
+add_executable(
+    ruby_absorption_test
+    tests/ruby_absorption_test.cpp
+    src/beam/BeamTracer.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+    src/mirror/Mirror.cpp
+    src/gameplay/BeamPuzzleBridge.cpp
+    src/gameplay/PuzzleSystem.cpp
+    src/gameplay/RubyCollision.cpp
+    src/gameplay/Ruby.cpp
+    src/gameplay/Door.cpp
+    src/gameplay/Trap.cpp
+)
+
+target_include_directories(
+    ruby_absorption_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    ruby_absorption_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME ruby_absorption
+    COMMAND ruby_absorption_test
+)
