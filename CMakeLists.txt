@@ -72,6 +72,7 @@ add_executable(
 
     # Rendering
     src/rendering/Renderer.cpp
+    src/player/PlayerMovement3D.cpp
     src/rendering/Shader.cpp
     src/rendering/Model.cpp
     src/rendering/BeamRenderer.cpp
@@ -538,10 +539,8 @@ add_test(
     NAME ruby_absorption
     COMMAND ruby_absorption_test
 )
-
-
 # --------------------------------------------------
-# Mirror transformation tests (Seny)
+# Mirror transformation tests (Joy)
 # --------------------------------------------------
 
 add_executable(
@@ -569,7 +568,7 @@ add_test(
 )
 
 # --------------------------------------------------
-# Standalone Mirror Demo (Seny)
+# Standalone Mirror Demo (Joy)
 # --------------------------------------------------
 
 add_executable(
@@ -591,7 +590,7 @@ target_link_libraries(
 )
 
 # --------------------------------------------------
-# Mirror Visual Demo (Seny)
+# Mirror Visual Demo (Joy)
 # --------------------------------------------------
 
 add_executable(
@@ -612,6 +611,27 @@ target_link_libraries(
         glfw
         glad_gl_core_33
         glm::glm
+)
+
+# --------------------------------------------------
+# 3D Player Movement Tests (Kimberly)
+# --------------------------------------------------
+
+add_executable(
+    player_movement_3d_test
+    tests/player_movement_3d_test.cpp
+    src/player/PlayerMovement3D.cpp
+)
+
+target_include_directories(
+    player_movement_3d_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_test(
+    NAME player_movement_3d
+    COMMAND player_movement_3d_test
 )
 
 # --------------------------------------------------
