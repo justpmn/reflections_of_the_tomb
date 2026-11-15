@@ -157,7 +157,8 @@ else
     // Real and false rubies in world space.
     std::vector<RubyTarget> rubies = {
         {glm::vec3(-2.0f, 1.0f, 5.0f), 0.3f, true},
-        {glm::vec3(2.0f, 1.0f, 5.0f), 0.3f, false}};
+        {glm::vec3(2.0f, 1.0f, 3.0f), 0.3f, false}
+    };
 
     // Same walls as the beam demo.
     std::vector<WallSegment> walls = {
@@ -198,7 +199,6 @@ std::vector<player3d::ObstacleXZ> obstacles;
 // Mirror position used for interaction testing.
 player3d::PositionXZ mirrorPosition{0.5f, 0.0f};
 
-double previousTime = glfwGetTime();
 CharacterAnimationState animationState =
     CharacterAnimationState::Idle;
 bool previousE = false;
@@ -211,6 +211,28 @@ bool previousE = false;
             static_cast<float>(now - previousTime),
             0.05f);
         previousTime = now;
+        float inputX = 0.0f;
+        float inputZ = 0.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            inputZ -= 1.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            inputZ += 1.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            inputX -= 1.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            inputX += 1.0f;
+
+        player.update(
+            inputX,
+            inputZ,
+            dt,
+            roomBounds,
+            obstacles
+        );
 
         // Select which mirror to rotate.
         if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
@@ -247,7 +269,7 @@ bool previousE = false;
             std::cout << "Puzzle reset!\n";
         }
 
-        previousT = keyT;
+        previousR = keyR;
 
         BeamTraceResult beamResult = BeamTracer::traceWithRubies(
             beamOrigin,
