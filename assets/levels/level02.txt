@@ -1,0 +1,20 @@
+// Level 2 - teaches: chain TWO mirrors; the ruby disables the spike row.
+name: Hall of Spikes
+cell_size: 2.0
+wall_height: 3.0
+grid:
+###########
+#L....M...#
+#.S.......#
+#..P......#
+#.....M..R#
+#.........#
+#TTTTTTTTT#
+#.........#
+#####D#####
+end
+light 0 dir E
+mirror 0 angle -45 solution 45
+mirror 1 angle -45 solution 45
+traps disabled_by 0
+door 0 needs 0

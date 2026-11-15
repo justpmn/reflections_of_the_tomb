@@ -1,30 +1,36 @@
-﻿// Owns all levels, tracks which one is active, and forwards drawing/queries to it.
 #pragma once
-#include "Level.h"
-#include <cstddef>
+// Loads levels in order and moves to the next one when the exit door is used.
+// Owner: Zahra Isaiho.
+
+#include <string>
 #include <vector>
+#include "Level.h"
 
 namespace world {
 
 class LevelManager {
 public:
-    LevelManager();                       // builds the default set of levels
+    explicit LevelManager(std::vector<std::string> levelPaths)
+        : paths_(std::move(levelPaths)) {}
 
-    void addLevel(const Level& level);
-    bool setCurrent(std::size_t index);   // false if index is out of range
-    bool next();                          // false if already on the last level
-    bool previous();                      // false if already on the first level
+    bool loadIndex(int i);                 // false + errors() on failure
+    bool loadFirst() { return loadIndex(0); }
+    bool next();                           // false when there are no more levels
+    bool reload() { return loadIndex(index_); }   // restart after a trap
 
-    std::size_t currentIndex() const { return current_; }
-    std::size_t levelCount() const { return levels_.size(); }
-
-    const Level& current() const { return levels_[current_]; }
-    void draw(const PlotFn& plot) const { current().draw(plot); }
+    bool hasLevel() const { return loaded_; }
+    const Level& current() const { return current_; }
+    int  index() const { return index_; }
+    int  count() const { return (int)paths_.size(); }
+    bool isLastLevel() const { return index_ == count() - 1; }
+    const std::vector<std::string>& errors() const { return errors_; }
 
 private:
-    std::vector<Level> levels_;
-    std::size_t current_ = 0;
+    std::vector<std::string> paths_;
+    Level current_;
+    int index_ = -1;
+    bool loaded_ = false;
+    std::vector<std::string> errors_;
 };
 
-} 
-
+} // namespace world

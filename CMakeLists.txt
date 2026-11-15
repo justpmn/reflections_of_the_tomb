@@ -92,6 +92,19 @@ add_executable(
     src/gameplay/PuzzleSystem.cpp
     src/gameplay/RubyCollision.cpp
     src/gameplay/BeamPuzzleBridge.cpp
+
+    # World / levels (Zahra)
+    src/world/Level.cpp
+    src/world/TempleMesh.cpp
+    src/world/LevelManager.cpp
+)
+
+# Copy level files next to the executable: <build>/levels/level01.txt ...
+add_custom_command(
+    TARGET reflections_of_the_tomb POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets/levels
+            $<TARGET_FILE_DIR:reflections_of_the_tomb>/levels
 )
 
 target_include_directories(
@@ -190,26 +203,72 @@ add_test(
     COMMAND single_mirror_test
 )
 # --------------------------------------------------
-# Level / LevelManager demo and test (Zahra)
+# Level loader, temple mesh and level manager tests (Zahra)
 # --------------------------------------------------
 
 add_executable(
-    level_demo
-    src/world/level_demo.cpp
+    level_test
+    tests/level_test.cpp
     src/world/Level.cpp
+    src/world/TempleMesh.cpp
     src/world/LevelManager.cpp
+    src/mirror/Mirror.cpp
+    src/beam/BeamSystem.cpp
 )
 
 target_include_directories(
-    level_demo
+    level_test
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-add_test(
-    NAME level_demo
-    COMMAND level_demo
+target_link_libraries(
+    level_test
+    PRIVATE
+        glm::glm
 )
+
+target_compile_definitions(
+    level_test
+    PRIVATE
+        LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels"
+)
+
+add_test(
+    NAME levels
+    COMMAND level_test
+)
+
+# --------------------------------------------------
+# Level preview: prints a level + solution beam (Zahra)
+# --------------------------------------------------
+
+add_executable(
+    level_preview
+    demos/level_preview.cpp
+    src/world/Level.cpp
+)
+
+target_include_directories(
+    level_preview
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    level_preview
+    PRIVATE
+        glm::glm
+)
+
+# Each level file must load and be solvable (exit code 0).
+foreach(level_name level01 level02 level03)
+    add_test(
+        NAME level_preview_${level_name}
+        COMMAND level_preview
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/levels/${level_name}.txt
+    )
+endforeach()
 
 
 # Puzzle and beam integration test
