@@ -5,6 +5,7 @@
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
+#include <cmath>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -21,6 +22,10 @@
 // ==========================================
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
+#include "player/PlayerMovement3D.h"
+
+void framebufferSizeCallback(
+    GLFWwindow *window, int width, int height)
 {
     (void)window;
     glViewport(0, 0, width, height);
@@ -30,6 +35,11 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 // MAIN
 // ==========================================
 
+enum class CharacterAnimationState
+{
+    Idle,
+    Walking
+};
 int main()
 {
     if (!glfwInit())
@@ -163,6 +173,21 @@ int main()
     {
         std::cerr << "Failed to load temple doorway!\n";
     }
+    // Load the Ranger character.
+Model rangerModel;
+
+bool rangerLoaded = rangerModel.load(
+    "assets/models/characters/ranger/Ranger.glb"
+);
+
+if (rangerLoaded)
+{
+    std::cout << "Ranger model loaded successfully!\n";
+}
+else
+{
+    std::cerr << "Failed to load Ranger model.\n";
+}
 
     // ==========================================
     // DOOR TRANSFORM AND ANIMATION
@@ -256,6 +281,21 @@ int main()
         {{ 6.5f,  6.5f}, {-6.5f,  6.5f}},
         {{-6.5f,  6.5f}, {-6.5f, -6.5f}}
     };
+        glm::vec2(5.0f, 5.0f),
+        4.0f, 135.0f, -180.0f, 180.0f);
+
+    // Real and false rubies in world space.
+    std::vector<RubyTarget> rubies = {
+        {glm::vec3(-2.0f, 1.0f, 5.0f), 0.3f, true},
+        {glm::vec3(2.0f, 1.0f, 3.0f), 0.3f, false}
+    };
+
+    // Same walls as the beam demo.
+    std::vector<WallSegment> walls = {
+        {{-3.0f, -1.5f}, {9.0f, -1.5f}},
+        {{9.0f, -1.5f}, {9.0f, 6.5f}},
+        {{9.0f, 6.5f}, {-3.0f, 6.5f}},
+        {{-3.0f, 6.5f}, {-3.0f, -1.5f}}};
 
     std::size_t selectedMirror = 0;
 
@@ -269,14 +309,70 @@ int main()
     std::cout << "Q / E - Rotate selected mirror\n";
     std::cout << "R - Reset puzzle and mirrors\n";
     std::cout << "ESC - Exit\n\n";
+   std::cout << "WASD - Move Ranger\n";
+std::cout << "Q / T - Rotate selected mirror\n";
+std::cout << "E - Check mirror interaction\n";
+std::cout << "R - Reset puzzle and Ranger\n";
+    std::cout << "ESC - Exit\n";
 
     // ==========================================
     // MAIN GAME LOOP
     // ==========================================
 
+    // 3D Ranger movement
+player3d::PlayerMovement3D player(
+    {-0.8f, 0.0f}, // Starting position: X, Z
+    2.5f,          // Movement speed
+    0.25f          // Collision radius
+);
+
+// Temporary room boundaries.
+// These will later come from Zahra's 3D chamber.
+player3d::RoomBoundsXZ roomBounds{
+    -4.0f, 4.0f,
+    -4.0f, 4.0f
+};
+
+// No obstacles yet; we'll add actual chamber collision geometry later.
+std::vector<player3d::ObstacleXZ> obstacles;
+
+// Mirror position used for interaction testing.
+player3d::PositionXZ mirrorPosition{0.5f, 0.0f};
+
+CharacterAnimationState animationState =
+    CharacterAnimationState::Idle;
+bool previousE = false;
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+        double now = glfwGetTime();
+        float dt = std::min(
+            static_cast<float>(now - previousTime),
+            0.05f);
+        previousTime = now;
+        float inputX = 0.0f;
+        float inputZ = 0.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            inputZ -= 1.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            inputZ += 1.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            inputX -= 1.0f;
+
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            inputX += 1.0f;
+
+        player.update(
+            inputX,
+            inputZ,
+            dt,
+            roomBounds,
+            obstacles
+        );
 
         const float currentFrameTime =
             static_cast<float>(glfwGetTime());
@@ -311,6 +407,10 @@ int main()
         }
 
         if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
+            mirrors[selectedMirror].rotateRight(rotationSpeed * dt);
+
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
             mirrors[selectedMirror].rotateRight(
                 rotationSpeed * deltaTime
@@ -726,6 +826,39 @@ int main()
                 }
             }
         }
+// Render the Ranger at its updated 3D position.
+if (rangerLoaded)
+{
+    player3d::PositionXZ position = player.position();
+
+    glm::mat4 rangerTransform(1.0f);
+
+    rangerTransform = glm::translate(
+        rangerTransform,
+        glm::vec3(position.x, 0.0f, position.z)
+    );
+    // Rotate the Ranger to face its movement direction.
+player3d::PositionXZ facing = player.facing();
+
+float angle = std::atan2(facing.x, facing.z);
+
+rangerTransform = glm::rotate(
+    rangerTransform,
+    angle,
+    glm::vec3(0.0f, 1.0f, 0.0f)
+);
+
+    rangerTransform = glm::scale(
+        rangerTransform,
+        glm::vec3(0.5f)
+    );
+
+    renderer.drawModel(
+        rangerModel,
+        rangerTransform,
+        glm::vec3(0.75f, 0.85f, 0.65f)
+    );
+}
 
         // ======================================
         // VISIBLE BEAM EMITTER
@@ -780,6 +913,7 @@ int main()
     mirrorModel.cleanup();
 
     renderer.shutdown();
+    rangerModel.cleanup();
 
     glfwDestroyWindow(window);
     glfwTerminate();

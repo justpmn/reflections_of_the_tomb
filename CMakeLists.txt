@@ -72,6 +72,7 @@ add_executable(
 
     # Rendering
     src/rendering/Renderer.cpp
+    src/player/PlayerMovement3D.cpp
     src/rendering/Shader.cpp
     src/rendering/Model.cpp
     src/rendering/BeamRenderer.cpp
@@ -455,4 +456,98 @@ target_link_libraries(
 add_test(
     NAME ruby_absorption
     COMMAND ruby_absorption_test
+)
+# --------------------------------------------------
+# Mirror transformation tests (Joy)
+# --------------------------------------------------
+
+add_executable(
+    mirror_test
+    tests/mirror_test.cpp
+    src/mirror/Mirror.cpp
+    src/mirror/MirrorSystem.cpp
+)
+
+target_include_directories(
+    mirror_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    mirror_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME mirror_transformations
+    COMMAND mirror_test
+)
+
+# --------------------------------------------------
+# Standalone Mirror Demo (Joy)
+# --------------------------------------------------
+
+add_executable(
+    mirror_demo
+    demos/mirror_demo.cpp
+    src/mirror/Mirror.cpp
+)
+
+target_include_directories(
+    mirror_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    mirror_demo
+    PRIVATE
+        glm::glm
+)
+
+# --------------------------------------------------
+# Mirror Visual Demo (Joy)
+# --------------------------------------------------
+
+add_executable(
+    mirror_visual_demo
+    demos/mirror_visual_demo.cpp
+    src/mirror/Mirror.cpp
+)
+
+target_include_directories(
+    mirror_visual_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    mirror_visual_demo
+    PRIVATE
+        glfw
+        glad_gl_core_33
+        glm::glm
+)
+
+# --------------------------------------------------
+# 3D Player Movement Tests (Kimberly)
+# --------------------------------------------------
+
+add_executable(
+    player_movement_3d_test
+    tests/player_movement_3d_test.cpp
+    src/player/PlayerMovement3D.cpp
+)
+
+target_include_directories(
+    player_movement_3d_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_test(
+    NAME player_movement_3d
+    COMMAND player_movement_3d_test
 )
