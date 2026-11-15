@@ -15,24 +15,18 @@ void require(bool condition, const char *message)
         throw std::runtime_error(message);
 }
 
-// Two mirrors: +X -> +Z -> -X.
+// Test 1-5 use the original demonstration layout.
 std::vector<Mirror> createMirrors()
 {
     std::vector<Mirror> mirrors;
 
     mirrors.emplace_back(
         glm::vec2(5.0f, 0.0f),
-        4.0f,
-        45.0f,
-        -180.0f,
-        180.0f);
+        4.0f, 45.0f, -180.0f, 180.0f);
 
     mirrors.emplace_back(
         glm::vec2(5.0f, 5.0f),
-        4.0f,
-        135.0f,
-        -180.0f,
-        180.0f);
+        4.0f, 135.0f, -180.0f, 180.0f);
 
     return mirrors;
 }
@@ -46,8 +40,8 @@ int main()
         PuzzleSystem puzzle;
 
         puzzle.setRubyPositions(
-            {-2.0f, 1.0f, 5.0f}, // Real ruby
-            {0.0f, 1.0f, 9.0f},  // False ruby
+            {-2.0f, 1.0f, 5.0f},
+            {0.0f, 1.0f, 9.0f},
             0.35f);
 
         auto path = BeamTracer::trace(
@@ -86,7 +80,8 @@ int main()
             0.35f);
 
         std::vector<WallSegment> walls = {
-            {{1.0f, 4.0f}, {1.0f, 6.0f}}};
+            {{1.0f, 4.0f}, {1.0f, 6.0f}}
+        };
 
         auto path = BeamTracer::trace(
             {0.0f, 0.0f},
@@ -117,8 +112,8 @@ int main()
         PuzzleSystem puzzle;
 
         puzzle.setRubyPositions(
-            {0.0f, 1.0f, 9.0f},  // Real, off beam
-            {-2.0f, 1.0f, 5.0f}, // False, on beam
+            {0.0f, 1.0f, 9.0f},
+            {-2.0f, 1.0f, 5.0f},
             0.35f);
 
         auto path = BeamTracer::trace(
@@ -141,8 +136,7 @@ int main()
             << "Test 3 PASSED: False ruby ignored\n";
     }
 
-    // TEST 4: A mirror redirects light away from
-    // a ruby positioned behind that mirror.
+    // TEST 4: Mirror redirects light away from a ruby.
     {
         PuzzleSystem puzzle;
 
@@ -168,7 +162,7 @@ int main()
             << "Test 4 PASSED: Mirror prevents transmission\n";
     }
 
-    // TEST 5: Direct light can also activate a ruby.
+    // TEST 5: Direct light activates a ruby.
     {
         PuzzleSystem puzzle;
 
@@ -194,11 +188,28 @@ int main()
             << "Test 5 PASSED: Direct beam activates ruby\n";
     }
 
-    // TEST 6: Level setup from main.cpp has a valid solution
-    // that avoids the false ruby and activates the real ruby.
+    // TEST 6: Actual temple level configuration.
+    // Both mirrors are rotated into a valid solution.
     {
         std::vector<Mirror> levelMirrors;
+
         levelMirrors.emplace_back(
+            glm::vec2(4.5f, -5.0f),
+            4.0f,
+            45.0f,
+            -180.0f,
+            180.0f);
+
+        levelMirrors.emplace_back(
+            glm::vec2(4.5f, 0.0f),
+            4.0f,
+            135.0f,
+            -180.0f,
+            180.0f);
+
+        std::vector<RubyTarget> rubies = {
+            {glm::vec3(-2.5f, 1.25f, 0.0f), 0.45f, true},
+            {glm::vec3(1.5f, 1.25f, 2.0f), 0.45f, false}
             glm::vec2(5.0f, 0.0f),
             4.0f, 45.0f, -180.0f, 180.0f);
         levelMirrors.emplace_back(
@@ -211,25 +222,27 @@ int main()
         };
 
         std::vector<WallSegment> walls = {
-            {{-3.0f, -1.5f}, {9.0f, -1.5f}},
-            {{9.0f, -1.5f}, {9.0f, 6.5f}},
-            {{9.0f, 6.5f}, {-3.0f, 6.5f}},
-            {{-3.0f, 6.5f}, {-3.0f, -1.5f}}};
+            {{-6.5f, -6.5f}, {6.5f, -6.5f}},
+            {{6.5f, -6.5f}, {6.5f, 6.5f}},
+            {{6.5f, 6.5f}, {-6.5f, 6.5f}},
+            {{-6.5f, 6.5f}, {-6.5f, -6.5f}}
+        };
 
         BeamTraceResult result = BeamTracer::traceWithRubies(
-            {0.0f, 0.0f},
+            {-0.5f, -5.0f},
             {1.0f, 0.0f},
             levelMirrors,
             rubies,
             4,
             30.0f,
-            1.0f,
+            1.25f,
             walls);
 
         require(result.hitRubyIndex == 0,
-                "Test 6: Expected beam to hit the real ruby (index 0)");
+                "Test 6: Expected beam to hit the real ruby");
 
         PuzzleSystem puzzle;
+
         BeamPuzzleBridge::processAbsorbingTrace(
             result,
             rubies,
@@ -239,9 +252,11 @@ int main()
                 "Test 6: Puzzle should be solved");
 
         std::cout
-            << "Test 6 PASSED: Level solvable around false ruby\n";
+            << "Test 6 PASSED: Actual temple layout is solvable\n";
     }
+
     std::cout
         << "\nAll 6 beam-puzzle integration tests PASSED!\n";
+
     return 0;
 }
