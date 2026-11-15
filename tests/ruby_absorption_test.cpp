@@ -222,9 +222,45 @@ int main()
 
         std::cout << "Test 8 PASSED: Wall priority\n";
     }
+    // TEST 9: Rotating a mirror changes ruby activation.
+{
+    auto movableMirrors = createMirrors();
+
+    std::vector<RubyTarget> rubies = {
+        {{-2.0f, 1.0f, 5.0f}, 0.3f, true}
+    };
+
+    auto aligned = BeamTracer::traceWithRubies(
+        {0.0f, 0.0f},
+        {1.0f, 0.0f},
+        movableMirrors,
+        rubies,
+        4, 20.0f, 1.0f
+    );
+
+    require(aligned.hitRubyIndex == 0,
+            "Test 9: Aligned mirrors should hit ruby");
+
+    // Rotate the first mirror away from its solved angle.
+    movableMirrors[0].rotateRight(10.0f);
+
+    auto misaligned = BeamTracer::traceWithRubies(
+        {0.0f, 0.0f},
+        {1.0f, 0.0f},
+        movableMirrors,
+        rubies,
+        4, 20.0f, 1.0f
+    );
+
+    require(misaligned.hitRubyIndex == -1,
+            "Test 9: Rotated mirror should miss ruby");
 
     std::cout
-        << "\nAll 8 ruby absorption checks PASSED!\n";
+        << "Test 9 PASSED: Dynamic mirror rotation\n";
+}
+
+    std::cout
+        << "\nAll  ruby absorption checks PASSED!\n";
 
     return 0;
 }

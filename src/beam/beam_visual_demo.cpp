@@ -4,13 +4,10 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-
 #include "beam/BeamTracer.h"
-#include "gameplay/RubyCollision.h"
 #include "rendering/Shader.h"
 
 namespace
@@ -327,15 +324,6 @@ const std::vector<BeamSegment>& path = traced.path;
 
 // In this demo, the only ruby has index 0.
 bool rubyHit = traced.hitRubyIndex == 0;
-            BeamTracer::trace(
-                emitter,
-                {1.0f, 0.0f},
-                mirrors,
-                4,
-                30.0f,
-                1.0f,
-                walls
-            );
 
         // Detect whether any valid segment reaches the ruby.
 
