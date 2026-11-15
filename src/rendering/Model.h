@@ -1,5 +1,4 @@
-﻿
-#pragma once
+﻿#pragma once
 
 #include <string>
 #include <vector>
@@ -13,12 +12,22 @@ public:
 
     bool load(const std::string& filePath);
 
+    // Draw every mesh in the model.
     void draw(unsigned int shaderProgram) const;
+
+    // Draw only one mesh by its index.
+    void drawMesh(
+        unsigned int meshIndex,
+        unsigned int shaderProgram
+    ) const;
 
     void cleanup();
 
     Model(const Model&) = delete;
     Model& operator=(const Model&) = delete;
+
+    // Number of meshes loaded.
+    unsigned int getMeshCount() const;
 
 private:
     struct Mesh

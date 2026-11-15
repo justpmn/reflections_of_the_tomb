@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <algorithm>
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
@@ -11,10 +12,18 @@
 #include "rendering/Model.h"
 #include "gameplay/PuzzleSystem.h"
 
+// ==========================================
+// WINDOW RESIZE CALLBACK
+// ==========================================
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
 }
+
+// ==========================================
+// MAIN FUNCTION
+// ==========================================
 
 int main()
 {
@@ -33,9 +42,11 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(
-        1280, 720,
+        1280,
+        720,
         "Reflections of the Tomb",
-        nullptr, nullptr
+        nullptr,
+        nullptr
     );
 
     if (!window)
@@ -62,10 +73,14 @@ int main()
         return -1;
     }
 
-    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    glfwSetFramebufferSizeCallback(
+        window,
+        framebufferSizeCallback
+    );
 
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
+
     glViewport(0, 0, width, height);
 
     // ==========================================
@@ -163,34 +178,78 @@ int main()
         std::cerr << "Failed to load decorated pillars!\n";
 
     // ==========================================
-    // LOAD 3D TEMPLE DOOR
+    // LOAD TEMPLE DOORWAY
     // ==========================================
 
-    Model doorModel;
+    Model doorwayModel;
 
-    bool doorLoaded = doorModel.load(
-        "assets/models/door/temple_door.glb"
+    bool doorwayLoaded = doorwayModel.load(
+        "assets/vendor/kaykit_dungeon/"
+        "KayKit_Dungeon_Pack_1.1_FREE/"
+        "Assets/gltf/wall_doorway.gltf"
     );
 
-    if (doorLoaded)
-        std::cout << "Temple door model loaded successfully!\n";
+    if (doorwayLoaded)
+    {
+        std::cout << "Temple doorway loaded successfully!\n";
+        std::cout << "Doorway mesh count: "
+                  << doorwayModel.getMeshCount() << '\n';
+
+        if (doorwayModel.getMeshCount() < 2)
+        {
+            std::cerr
+                << "WARNING: Expected separate door and frame meshes.\n";
+        }
+    }
     else
-        std::cerr << "Failed to load temple door model!\n";
+    {
+        std::cerr << "Failed to load temple doorway!\n";
+    }
 
     // ==========================================
-    // TEMPLE DOOR TRANSFORM
+    // TEMPLE DOORWAY TRANSFORM
     // ==========================================
 
-    glm::mat4 doorTransform(1.0f);
+    glm::mat4 doorwayTransform(1.0f);
 
-    doorTransform = glm::translate(
-        doorTransform,
-        glm::vec3(-1.542f, -0.266f, 10.046f)
+    doorwayTransform = glm::translate(
+        doorwayTransform,
+        glm::vec3(0.0f, -0.5f, 6.5f)
     );
 
-    doorTransform = glm::scale(
-        doorTransform,
-        glm::vec3(1.2f)
+    // ==========================================
+    // DOOR ANIMATION SETTINGS
+    // ==========================================
+
+    float doorCurrentAngle = 0.0f;
+
+    const float doorOpenAngle =
+        glm::radians(90.0f);
+
+    const float doorAnimationSpeed =
+        glm::radians(90.0f);
+
+    float previousFrameTime =
+        static_cast<float>(glfwGetTime());
+
+    // ==========================================
+    // GEMSTONE TRANSFORMS
+    // ==========================================
+
+    // Real ruby.
+    glm::mat4 realRubyTransform(1.0f);
+
+    realRubyTransform = glm::translate(
+        realRubyTransform,
+        glm::vec3(-2.5f, -0.5f, 0.0f)
+    );
+
+    // False ruby.
+    glm::mat4 falseRubyTransform(1.0f);
+
+    falseRubyTransform = glm::translate(
+        falseRubyTransform,
+        glm::vec3(2.5f, -0.5f, 0.0f)
     );
 
     // ==========================================
@@ -217,16 +276,43 @@ int main()
     {
         glfwPollEvents();
 
+        // ======================================
+        // CALCULATE FRAME TIME
+        // ======================================
+
+        float currentFrameTime =
+            static_cast<float>(glfwGetTime());
+
+        float deltaTime =
+            currentFrameTime - previousFrameTime;
+
+        previousFrameTime = currentFrameTime;
+
+        // Prevent large animation jumps if the window pauses.
+        deltaTime = std::min(deltaTime, 0.05f);
+
+        // ======================================
+        // HANDLE EXIT INPUT
+        // ======================================
+
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
             glfwSetWindowShouldClose(window, true);
         }
 
-        bool key1 = glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS;
-        bool key2 = glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS;
-        bool keyR = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
+        bool key1 =
+            glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS;
 
-        // Handle puzzle input.
+        bool key2 =
+            glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS;
+
+        bool keyR =
+            glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
+
+        // ======================================
+        // HANDLE PUZZLE INPUT
+        // ======================================
+
         if (key1 && !previous1)
         {
             puzzle.hitRuby(false);
@@ -248,6 +334,57 @@ int main()
         previous1 = key1;
         previous2 = key2;
         previousR = keyR;
+
+        // ======================================
+        // UPDATE DOOR ANIMATION
+        // ======================================
+
+        float targetDoorAngle =
+            puzzle.isSolved() ? doorOpenAngle : 0.0f;
+
+        float angleStep =
+            doorAnimationSpeed * deltaTime;
+
+        if (doorCurrentAngle < targetDoorAngle)
+        {
+            doorCurrentAngle = std::min(
+                doorCurrentAngle + angleStep,
+                targetDoorAngle
+            );
+        }
+        else if (doorCurrentAngle > targetDoorAngle)
+        {
+            doorCurrentAngle = std::max(
+                doorCurrentAngle - angleStep,
+                targetDoorAngle
+            );
+        }
+
+        // ======================================
+        // CALCULATE ANIMATED DOOR TRANSFORM
+        // ======================================
+
+        glm::mat4 animatedDoorTransform =
+            doorwayTransform;
+
+        // Move the door's local hinge to the origin.
+        animatedDoorTransform = glm::translate(
+            animatedDoorTransform,
+            glm::vec3(-1.0f, 0.0f, 0.0f)
+        );
+
+        // Rotate the door around its vertical hinge.
+        animatedDoorTransform = glm::rotate(
+            animatedDoorTransform,
+            doorCurrentAngle,
+            glm::vec3(0.0f, 1.0f, 0.0f)
+        );
+
+        // Move the door back to its original position.
+        animatedDoorTransform = glm::translate(
+            animatedDoorTransform,
+            glm::vec3(1.0f, 0.0f, 0.0f)
+        );
 
         // ======================================
         // BEGIN FRAME
@@ -350,7 +487,8 @@ int main()
                 );
             }
 
-            // Front wall with central entrance.
+            // Front wall sections.
+            // Centre reserved for the doorway.
             for (int i : {-1, 1})
             {
                 glm::mat4 frontWall(1.0f);
@@ -369,6 +507,42 @@ int main()
         }
 
         // ======================================
+        // RENDER ANIMATED TEMPLE DOORWAY
+        // ======================================
+
+        if (doorwayLoaded)
+        {
+            if (doorwayModel.getMeshCount() >= 2)
+            {
+                // Mesh 1: stationary doorway frame.
+                renderer.drawModelMesh(
+                    doorwayModel,
+                    1,
+                    doorwayTransform,
+                    glm::vec3(1.0f)
+                );
+
+                // Mesh 0: independently animated door panel.
+                renderer.drawModelMesh(
+                    doorwayModel,
+                    0,
+                    animatedDoorTransform,
+                    glm::vec3(1.0f)
+                );
+            }
+            else
+            {
+                // Fallback if the model does not contain
+                // separate frame and door meshes.
+                renderer.drawModel(
+                    doorwayModel,
+                    doorwayTransform,
+                    glm::vec3(1.0f)
+                );
+            }
+        }
+
+        // ======================================
         // RENDER FOUR DECORATED TEMPLE PILLARS
         // ======================================
 
@@ -377,12 +551,12 @@ int main()
             const glm::vec3 decoratedPositions[] =
             {
                 // Front pair.
-                glm::vec3(-4.2f, -0.5f,  3.0f),
-                glm::vec3( 4.2f, -0.5f,  3.0f),
+                glm::vec3(-4.2f, -0.5f, 3.0f),
+                glm::vec3(4.2f, -0.5f, 3.0f),
 
                 // Back pair.
                 glm::vec3(-4.2f, -0.5f, -4.0f),
-                glm::vec3( 4.2f, -0.5f, -4.0f)
+                glm::vec3(4.2f, -0.5f, -4.0f)
             };
 
             for (const glm::vec3& position : decoratedPositions)
@@ -403,57 +577,59 @@ int main()
         }
 
         // ======================================
-        // RENDER 3D TEMPLE DOOR
+        // RENDER REAL RUBY
         // ======================================
 
-        if (doorLoaded && !puzzle.isDoorOpen())
-        {
-            renderer.drawModel(
-                doorModel,
-                doorTransform,
-                glm::vec3(1.0f)
-            );
-        }
-
-        // ======================================
-        // RENDER PUZZLE PLACEHOLDERS
-        // ======================================
-
-        // Real ruby.
         if (puzzle.isSolved())
         {
-            renderer.drawRectangle(
-                -0.7f, 0.2f, 0.3f, 0.3f,
-                0.1f, 1.0f, 0.2f
+            renderer.drawGemstone(
+                realRubyTransform,
+                glm::vec3(0.1f, 1.0f, 0.2f)
             );
         }
         else
         {
-            renderer.drawRectangle(
-                -0.7f, 0.2f, 0.3f, 0.3f,
-                0.9f, 0.1f, 0.2f
+            renderer.drawGemstone(
+                realRubyTransform,
+                glm::vec3(0.9f, 0.05f, 0.12f)
             );
         }
 
-        // False ruby.
-        renderer.drawRectangle(
-            -0.2f, 0.2f, 0.3f, 0.3f,
-            0.6f, 0.1f, 0.8f
+        // ======================================
+        // RENDER FALSE RUBY
+        // ======================================
+
+        renderer.drawGemstone(
+            falseRubyTransform,
+            glm::vec3(0.6f, 0.1f, 0.9f)
         );
 
-        // Trap placeholder.
+        // ======================================
+        // RENDER TRAP PLACEHOLDER
+        // ======================================
+
         if (puzzle.areTrapsActive())
         {
             renderer.drawRectangle(
-                -0.7f, -0.7f, 0.8f, 0.2f,
-                1.0f, 0.1f, 0.1f
+                -0.7f,
+                -0.7f,
+                0.8f,
+                0.2f,
+                1.0f,
+                0.1f,
+                0.1f
             );
         }
         else
         {
             renderer.drawRectangle(
-                -0.7f, -0.7f, 0.8f, 0.2f,
-                0.4f, 0.4f, 0.4f
+                -0.7f,
+                -0.7f,
+                0.8f,
+                0.2f,
+                0.4f,
+                0.4f,
+                0.4f
             );
         }
 
@@ -484,8 +660,8 @@ int main()
     floorModel.cleanup();
     wallModel.cleanup();
     decoratedPillarModel.cleanup();
+    doorwayModel.cleanup();
     mirrorModel.cleanup();
-    doorModel.cleanup();
 
     renderer.shutdown();
 

@@ -497,10 +497,30 @@ bool Model::load(const std::string& filePath)
     return true;
 }
 
+// Draw every mesh in the model.
 void Model::draw(unsigned int shaderProgram) const
 {
     if (!loaded)
         return;
+
+    for (unsigned int i = 0; i < meshes.size(); ++i)
+    {
+        drawMesh(i, shaderProgram);
+    }
+
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+// Draw only one selected mesh.
+void Model::drawMesh(
+    unsigned int meshIndex,
+    unsigned int shaderProgram) const
+{
+    if (!loaded || meshIndex >= meshes.size())
+        return;
+
+    const Mesh& mesh = meshes[meshIndex];
 
     const GLint textureLocation =
         glGetUniformLocation(shaderProgram, "uTexture");
@@ -508,38 +528,41 @@ void Model::draw(unsigned int shaderProgram) const
     const GLint hasTextureLocation =
         glGetUniformLocation(shaderProgram, "uHasTexture");
 
-    for (const Mesh& mesh : meshes)
+    glActiveTexture(GL_TEXTURE0);
+
+    glBindTexture(
+        GL_TEXTURE_2D,
+        mesh.hasTexture ? mesh.textureID : 0
+    );
+
+    if (textureLocation != -1)
+        glUniform1i(textureLocation, 0);
+
+    if (hasTextureLocation != -1)
     {
-        glActiveTexture(GL_TEXTURE0);
-
-        glBindTexture(
-            GL_TEXTURE_2D,
-            mesh.hasTexture ? mesh.textureID : 0
-        );
-
-        if (textureLocation != -1)
-            glUniform1i(textureLocation, 0);
-
-        if (hasTextureLocation != -1)
-        {
-            glUniform1i(
-                hasTextureLocation,
-                mesh.hasTexture ? 1 : 0
-            );
-        }
-
-        glBindVertexArray(mesh.VAO);
-
-        glDrawElements(
-            GL_TRIANGLES,
-            static_cast<GLsizei>(mesh.indexCount),
-            GL_UNSIGNED_INT,
-            nullptr
+        glUniform1i(
+            hasTextureLocation,
+            mesh.hasTexture ? 1 : 0
         );
     }
 
+    glBindVertexArray(mesh.VAO);
+
+    glDrawElements(
+        GL_TRIANGLES,
+        static_cast<GLsizei>(mesh.indexCount),
+        GL_UNSIGNED_INT,
+        nullptr
+    );
+
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+// Return the number of meshes in the model.
+unsigned int Model::getMeshCount() const
+{
+    return static_cast<unsigned int>(meshes.size());
 }
 
 void Model::cleanup()

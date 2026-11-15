@@ -10,13 +10,10 @@ public:
     Renderer() = default;
     ~Renderer();
 
-    // Initialize the renderer and its OpenGL resources.
     bool initialize();
 
-    // Clear the screen for a new frame.
     void beginFrame();
 
-    // Draw a colored 2D rectangle.
     void drawRectangle(
         float x,
         float y,
@@ -27,14 +24,26 @@ public:
         float blue
     );
 
-    // Draw a 3D model.
     void drawModel(
         const Model& model,
         const glm::mat4& modelMatrix,
         const glm::vec3& color
     );
 
-    // Release OpenGL resources.
+    // Draw one selected mesh using its own transform.
+    void drawModelMesh(
+        const Model& model,
+        unsigned int meshIndex,
+        const glm::mat4& modelMatrix,
+        const glm::vec3& color
+    );
+
+    // Draw a procedural gemstone and its stone pedestal.
+    void drawGemstone(
+        const glm::mat4& transform,
+        const glm::vec3& crystalColor
+    );
+
     void shutdown();
 
 private:
@@ -43,6 +52,14 @@ private:
 
     unsigned int VAO = 0;
     unsigned int VBO = 0;
+
+    unsigned int pedestalVAO = 0;
+    unsigned int pedestalVBO = 0;
+    int pedestalVertexCount = 0;
+
+    unsigned int crystalVAO = 0;
+    unsigned int crystalVBO = 0;
+    int crystalVertexCount = 0;
 
     bool initialized = false;
 
