@@ -69,20 +69,30 @@ glad_add_library(
 add_executable(
     reflections_of_the_tomb
     src/main.cpp
+
+    # Rendering
     src/rendering/Renderer.cpp
     src/player/PlayerMovement3D.cpp
     src/rendering/Shader.cpp
     src/rendering/Model.cpp
+    src/rendering/BeamRenderer.cpp
+
+    # Mirrors
     src/mirror/Mirror.cpp
     src/mirror/MirrorSystem.cpp
 
-    # Gameplay components
+    # Beam tracing
+    src/beam/BeamTracer.cpp
+    src/beam/BeamSystem.cpp
+    src/physics/Intersections.cpp
+
+    # Gameplay
     src/gameplay/Ruby.cpp
     src/gameplay/Trap.cpp
     src/gameplay/Door.cpp
     src/gameplay/PuzzleSystem.cpp
     src/gameplay/RubyCollision.cpp
-    
+    src/gameplay/BeamPuzzleBridge.cpp
 )
 
 target_include_directories(
