@@ -4,12 +4,212 @@
 #include <iostream>
 #include <vector>
 #include <filesystem>
+#include <cmath>
+#include <algorithm>
 
 #define CGLTF_IMPLEMENTATION
 #include "../third_party/cgltf.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "../third_party/stb_image.h"
+
+namespace
+{
+    // Transform a position using a column-major glTF matrix.
+    void transformPosition(
+        const cgltf_float matrix[16],
+        float position[3])
+    {
+        const float x = position[0];
+        const float y = position[1];
+        const float z = position[2];
+
+        position[0] =
+            matrix[0] * x + matrix[4] * y +
+            matrix[8] * z + matrix[12];
+
+        position[1] =
+            matrix[1] * x + matrix[5] * y +
+            matrix[9] * z + matrix[13];
+
+        position[2] =
+            matrix[2] * x + matrix[6] * y +
+            matrix[10] * z + matrix[14];
+    }
+
+    // Transform and normalize a normal.
+    void transformNormal(
+        const cgltf_float matrix[16],
+        float normal[3])
+    {
+        const float x = normal[0];
+        const float y = normal[1];
+        const float z = normal[2];
+
+        normal[0] =
+            matrix[0] * x + matrix[4] * y + matrix[8] * z;
+
+        normal[1] =
+            matrix[1] * x + matrix[5] * y + matrix[9] * z;
+
+        normal[2] =
+            matrix[2] * x + matrix[6] * y + matrix[10] * z;
+
+        const float length = std::sqrt(
+            normal[0] * normal[0] +
+            normal[1] * normal[1] +
+            normal[2] * normal[2]
+        );
+
+        if (length > 0.00001f)
+        {
+            normal[0] /= length;
+            normal[1] /= length;
+            normal[2] /= length;
+        }
+    }
+
+    unsigned int loadTexture(
+        const cgltf_image* sourceImage,
+        const std::filesystem::path& modelDirectory)
+    {
+        if (!sourceImage)
+            return 0;
+
+        int width = 0;
+        int height = 0;
+        int channels = 0;
+
+        unsigned char* imageData = nullptr;
+
+        // External image file.
+        if (sourceImage->uri)
+        {
+            const std::filesystem::path texturePath =
+                modelDirectory / sourceImage->uri;
+
+            imageData = stbi_load(
+                texturePath.string().c_str(),
+                &width,
+                &height,
+                &channels,
+                0
+            );
+
+            if (!imageData)
+            {
+                std::cerr << "Failed to load texture: "
+                          << texturePath.string()
+                          << " - " << stbi_failure_reason()
+                          << '\n';
+                return 0;
+            }
+
+            std::cout << "Texture loaded: "
+                      << texturePath.string() << '\n';
+        }
+        // Embedded image inside a GLB buffer.
+        else if (sourceImage->buffer_view)
+        {
+            const cgltf_buffer_view* view =
+                sourceImage->buffer_view;
+
+            const unsigned char* embeddedData =
+                static_cast<const unsigned char*>(
+                    cgltf_buffer_view_data(view)
+                );
+
+            if (!embeddedData || view->size == 0)
+            {
+                std::cerr << "Invalid embedded texture data.\n";
+                return 0;
+            }
+
+            imageData = stbi_load_from_memory(
+                embeddedData,
+                static_cast<int>(view->size),
+                &width,
+                &height,
+                &channels,
+                0
+            );
+
+            if (!imageData)
+            {
+                std::cerr << "Failed to decode embedded texture: "
+                          << stbi_failure_reason() << '\n';
+                return 0;
+            }
+
+            std::cout << "Embedded GLB texture loaded successfully!\n";
+        }
+        else
+        {
+            std::cerr << "Image has no supported data source.\n";
+            return 0;
+        }
+
+        GLenum format = GL_RGB;
+
+        if (channels == 1)
+            format = GL_RED;
+        else if (channels == 3)
+            format = GL_RGB;
+        else if (channels == 4)
+            format = GL_RGBA;
+
+        unsigned int textureID = 0;
+
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            format,
+            width,
+            height,
+            0,
+            format,
+            GL_UNSIGNED_BYTE,
+            imageData
+        );
+
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_S,
+            GL_REPEAT
+        );
+
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_T,
+            GL_REPEAT
+        );
+
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MIN_FILTER,
+            GL_LINEAR_MIPMAP_LINEAR
+        );
+
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MAG_FILTER,
+            GL_LINEAR
+        );
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        stbi_image_free(imageData);
+
+        return textureID;
+    }
+}
 
 Model::~Model()
 {
@@ -56,15 +256,18 @@ bool Model::load(const std::string& filePath)
 
     stbi_set_flip_vertically_on_load(true);
 
-    for (cgltf_size i = 0; i < data->meshes_count; ++i)
+    // Process a mesh using the world transformation of its node.
+    auto processMesh = [&](const cgltf_mesh* sourceMesh,
+                           const cgltf_float worldMatrix[16])
     {
-        const cgltf_mesh& sourceMesh = data->meshes[i];
+        if (!sourceMesh)
+            return;
 
         for (cgltf_size j = 0;
-             j < sourceMesh.primitives_count; ++j)
+             j < sourceMesh->primitives_count; ++j)
         {
             const cgltf_primitive& primitive =
-                sourceMesh.primitives[j];
+                sourceMesh->primitives[j];
 
             if (primitive.type != cgltf_primitive_type_triangles)
                 continue;
@@ -95,8 +298,7 @@ bool Model::load(const std::string& filePath)
             std::vector<float> vertices;
             std::vector<unsigned int> indices;
 
-            // Interleaved vertex data:
-            // Position (3), Normal (3), Texture coordinates (2).
+            // Read vertices and apply node transformation.
             for (cgltf_size v = 0; v < positions->count; ++v)
             {
                 float position[3] = {};
@@ -120,6 +322,9 @@ bool Model::load(const std::string& filePath)
                     cgltf_accessor_read_float(
                         texCoords, v, uv, 2);
                 }
+
+                transformPosition(worldMatrix, position);
+                transformNormal(worldMatrix, normal);
 
                 vertices.insert(
                     vertices.end(),
@@ -185,21 +390,18 @@ bool Model::load(const std::string& filePath)
 
             const GLsizei stride = 8 * sizeof(float);
 
-            // Position: location 0.
             glVertexAttribPointer(
                 0, 3, GL_FLOAT, GL_FALSE,
                 stride, (void*)0
             );
             glEnableVertexAttribArray(0);
 
-            // Normal: location 1.
             glVertexAttribPointer(
                 1, 3, GL_FLOAT, GL_FALSE,
                 stride, (void*)(3 * sizeof(float))
             );
             glEnableVertexAttribArray(1);
 
-            // Texture coordinates: location 2.
             glVertexAttribPointer(
                 2, 2, GL_FLOAT, GL_FALSE,
                 stride, (void*)(6 * sizeof(float))
@@ -211,7 +413,7 @@ bool Model::load(const std::string& filePath)
             mesh.indexCount =
                 static_cast<unsigned int>(indices.size());
 
-            // Load the base colour texture, if available.
+            // Load material base-colour texture.
             if (primitive.material &&
                 primitive.material->pbr_metallic_roughness
                     .base_color_texture.texture)
@@ -220,101 +422,60 @@ bool Model::load(const std::string& filePath)
                     primitive.material->pbr_metallic_roughness
                         .base_color_texture.texture;
 
-                if (texture->image && texture->image->uri)
-                {
-                    const std::filesystem::path texturePath =
-                        modelDirectory / texture->image->uri;
+                mesh.textureID = loadTexture(
+                    texture->image,
+                    modelDirectory
+                );
 
-                    int imageWidth = 0;
-                    int imageHeight = 0;
-                    int channels = 0;
-
-                    unsigned char* image = stbi_load(
-                        texturePath.string().c_str(),
-                        &imageWidth,
-                        &imageHeight,
-                        &channels,
-                        0
-                    );
-
-                    if (image)
-                    {
-                        GLenum format = GL_RGB;
-
-                        if (channels == 1)
-                            format = GL_RED;
-                        else if (channels == 3)
-                            format = GL_RGB;
-                        else if (channels == 4)
-                            format = GL_RGBA;
-
-                        glGenTextures(1, &mesh.textureID);
-                        glBindTexture(
-                            GL_TEXTURE_2D,
-                            mesh.textureID
-                        );
-
-                        glTexImage2D(
-                            GL_TEXTURE_2D,
-                            0,
-                            format,
-                            imageWidth,
-                            imageHeight,
-                            0,
-                            format,
-                            GL_UNSIGNED_BYTE,
-                            image
-                        );
-
-                        glGenerateMipmap(GL_TEXTURE_2D);
-
-                        glTexParameteri(
-                            GL_TEXTURE_2D,
-                            GL_TEXTURE_WRAP_S,
-                            GL_REPEAT
-                        );
-
-                        glTexParameteri(
-                            GL_TEXTURE_2D,
-                            GL_TEXTURE_WRAP_T,
-                            GL_REPEAT
-                        );
-
-                        glTexParameteri(
-                            GL_TEXTURE_2D,
-                            GL_TEXTURE_MIN_FILTER,
-                            GL_LINEAR_MIPMAP_LINEAR
-                        );
-
-                        glTexParameteri(
-                            GL_TEXTURE_2D,
-                            GL_TEXTURE_MAG_FILTER,
-                            GL_LINEAR
-                        );
-
-                        mesh.hasTexture = true;
-
-                        stbi_image_free(image);
-
-                        std::cout
-                            << "Texture loaded: "
-                            << texturePath.string()
-                            << '\n';
-                    }
-                    else
-                    {
-                        std::cerr
-                            << "Failed to load texture: "
-                            << texturePath.string()
-                            << " - "
-                            << stbi_failure_reason()
-                            << '\n';
-                    }
-                }
+                mesh.hasTexture = mesh.textureID != 0;
             }
 
             meshes.push_back(mesh);
         }
+    };
+
+    // Track meshes that are referenced by scene nodes.
+    std::vector<bool> meshReferenced(data->meshes_count, false);
+
+    // Process every node and its complete world transformation.
+    for (cgltf_size i = 0; i < data->nodes_count; ++i)
+    {
+        const cgltf_node* node = &data->nodes[i];
+
+        if (!node->mesh)
+            continue;
+
+        cgltf_float worldMatrix[16];
+
+        cgltf_node_transform_world(node, worldMatrix);
+
+        const std::ptrdiff_t meshIndex =
+            node->mesh - data->meshes;
+
+        if (meshIndex >= 0 &&
+            static_cast<cgltf_size>(meshIndex) < data->meshes_count)
+        {
+            meshReferenced[meshIndex] = true;
+        }
+
+        processMesh(node->mesh, worldMatrix);
+    }
+
+    // Support models containing meshes without scene nodes.
+    for (cgltf_size i = 0; i < data->meshes_count; ++i)
+    {
+        if (meshReferenced[i])
+            continue;
+
+        cgltf_float identity[16] =
+        {
+            1.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+        };
+
+        processMesh(&data->meshes[i], identity);
     }
 
     cgltf_free(data);
@@ -329,6 +490,9 @@ bool Model::load(const std::string& filePath)
 
     std::cout << "Model loaded successfully: "
               << filePath << '\n';
+
+    std::cout << "Mesh count: "
+              << meshes.size() << '\n';
 
     return true;
 }
@@ -346,24 +510,23 @@ void Model::draw(unsigned int shaderProgram) const
 
     for (const Mesh& mesh : meshes)
     {
-        if (mesh.hasTexture)
-        {
-            glActiveTexture(GL_TEXTURE0);
+        glActiveTexture(GL_TEXTURE0);
 
-            glBindTexture(
-                GL_TEXTURE_2D,
-                mesh.textureID
-            );
-        }
+        glBindTexture(
+            GL_TEXTURE_2D,
+            mesh.hasTexture ? mesh.textureID : 0
+        );
 
         if (textureLocation != -1)
             glUniform1i(textureLocation, 0);
 
         if (hasTextureLocation != -1)
+        {
             glUniform1i(
                 hasTextureLocation,
                 mesh.hasTexture ? 1 : 0
             );
+        }
 
         glBindVertexArray(mesh.VAO);
 

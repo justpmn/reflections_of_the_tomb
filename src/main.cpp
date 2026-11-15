@@ -11,8 +11,7 @@
 #include "rendering/Model.h"
 #include "gameplay/PuzzleSystem.h"
 
-void framebufferSizeCallback(
-    GLFWwindow* window, int width, int height)
+void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
 }
@@ -31,11 +30,7 @@ int main()
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-
-    glfwWindowHint(
-        GLFW_OPENGL_PROFILE,
-        GLFW_OPENGL_CORE_PROFILE
-    );
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(
         1280, 720,
@@ -67,12 +62,9 @@ int main()
         return -1;
     }
 
-    glfwSetFramebufferSizeCallback(
-        window, framebufferSizeCallback
-    );
+    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
     int width, height;
-
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
 
@@ -103,13 +95,9 @@ int main()
     );
 
     if (mirrorLoaded)
-    {
         std::cout << "Mirror model loaded successfully!\n";
-    }
     else
-    {
         std::cerr << "Failed to load mirror model!\n";
-    }
 
     glm::mat4 mirrorTransform(1.0f);
 
@@ -136,13 +124,9 @@ int main()
     );
 
     if (floorLoaded)
-    {
         std::cout << "Dungeon floor loaded successfully!\n";
-    }
     else
-    {
         std::cerr << "Failed to load dungeon floor!\n";
-    }
 
     // ==========================================
     // LOAD TEMPLE WALLS
@@ -157,13 +141,40 @@ int main()
     );
 
     if (wallsLoaded)
-    {
         std::cout << "Temple wall model loaded successfully!\n";
-    }
     else
-    {
         std::cerr << "Failed to load temple wall model!\n";
-    }
+
+    // ==========================================
+    // LOAD 3D TEMPLE DOOR
+    // ==========================================
+
+    Model doorModel;
+
+    bool doorLoaded = doorModel.load(
+        "assets/models/door/temple_door.glb"
+    );
+
+    if (doorLoaded)
+        std::cout << "Temple door model loaded successfully!\n";
+    else
+        std::cerr << "Failed to load temple door model!\n";
+
+    // ==========================================
+    // TEMPLE DOOR TRANSFORM
+    // ==========================================
+
+    glm::mat4 doorTransform(1.0f);
+
+    doorTransform = glm::translate(
+        doorTransform,
+        glm::vec3(-1.542f, -0.266f, 10.046f)
+    );
+
+    doorTransform = glm::scale(
+        doorTransform,
+        glm::vec3(1.2f, 1.2f, 1.2f)
+    );
 
     // ==========================================
     // INITIALIZE PUZZLE
@@ -189,21 +200,14 @@ int main()
     {
         glfwPollEvents();
 
-        // Exit game.
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE)
-            == GLFW_PRESS)
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
             glfwSetWindowShouldClose(window, true);
         }
 
-        bool key1 = glfwGetKey(
-            window, GLFW_KEY_1) == GLFW_PRESS;
-
-        bool key2 = glfwGetKey(
-            window, GLFW_KEY_2) == GLFW_PRESS;
-
-        bool keyR = glfwGetKey(
-            window, GLFW_KEY_R) == GLFW_PRESS;
+        bool key1 = glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS;
+        bool key2 = glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS;
+        bool keyR = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
 
         // Handle puzzle input.
         if (key1 && !previous1)
@@ -258,29 +262,26 @@ int main()
                     renderer.drawModel(
                         floorModel,
                         tileTransform,
-                        glm::vec3(1.0f, 1.0f, 1.0f)
+                        glm::vec3(1.0f)
                     );
                 }
             }
         }
 
         // ======================================
-        // RENDER BACK WALL
+        // RENDER TEMPLE WALLS
         // ======================================
 
         if (wallsLoaded)
         {
+            // Back wall.
             for (int i = -1; i <= 1; i++)
             {
                 glm::mat4 backWall(1.0f);
 
                 backWall = glm::translate(
                     backWall,
-                    glm::vec3(
-                        i * 4.0f,
-                        -0.5f,
-                        -6.5f
-                    )
+                    glm::vec3(i * 4.0f, -0.5f, -6.5f)
                 );
 
                 renderer.drawModel(
@@ -290,22 +291,14 @@ int main()
                 );
             }
 
-            // ==================================
-            // RENDER LEFT AND RIGHT WALLS
-            // ==================================
-
+            // Left and right walls.
             for (int i = -1; i <= 1; i++)
             {
-                // Left wall.
                 glm::mat4 leftWall(1.0f);
 
                 leftWall = glm::translate(
                     leftWall,
-                    glm::vec3(
-                        -6.5f,
-                        -0.5f,
-                        i * 4.0f
-                    )
+                    glm::vec3(-6.5f, -0.5f, i * 4.0f)
                 );
 
                 leftWall = glm::rotate(
@@ -320,16 +313,11 @@ int main()
                     glm::vec3(1.0f)
                 );
 
-                // Right wall.
                 glm::mat4 rightWall(1.0f);
 
                 rightWall = glm::translate(
                     rightWall,
-                    glm::vec3(
-                        6.5f,
-                        -0.5f,
-                        i * 4.0f
-                    )
+                    glm::vec3(6.5f, -0.5f, i * 4.0f)
                 );
 
                 rightWall = glm::rotate(
@@ -345,22 +333,14 @@ int main()
                 );
             }
 
-            // ==================================
-            // FRONT WALL
-            // Leave the centre open for entry.
-            // ==================================
-
+            // Front wall. Leave centre open.
             for (int i : {-1, 1})
             {
                 glm::mat4 frontWall(1.0f);
 
                 frontWall = glm::translate(
                     frontWall,
-                    glm::vec3(
-                        i * 4.0f,
-                        -0.5f,
-                        6.5f
-                    )
+                    glm::vec3(i * 4.0f, -0.5f, 6.5f)
                 );
 
                 renderer.drawModel(
@@ -372,7 +352,20 @@ int main()
         }
 
         // ======================================
-        // RENDER EXISTING PUZZLE PLACEHOLDERS
+        // RENDER 3D TEMPLE DOOR
+        // ======================================
+
+        if (doorLoaded && !puzzle.isDoorOpen())
+        {
+            renderer.drawModel(
+                doorModel,
+                doorTransform,
+                glm::vec3(1.0f)
+            );
+        }
+
+        // ======================================
+        // RENDER PUZZLE PLACEHOLDERS
         // ======================================
 
         // Real ruby.
@@ -396,22 +389,6 @@ int main()
             -0.2f, 0.2f, 0.3f, 0.3f,
             0.6f, 0.1f, 0.8f
         );
-
-        // Door placeholder.
-        if (puzzle.isDoorOpen())
-        {
-            renderer.drawRectangle(
-                0.5f, -0.2f, 0.25f, 0.7f,
-                0.1f, 0.8f, 0.2f
-            );
-        }
-        else
-        {
-            renderer.drawRectangle(
-                0.5f, -0.2f, 0.25f, 0.7f,
-                0.5f, 0.3f, 0.1f
-            );
-        }
 
         // Trap placeholder.
         if (puzzle.areTrapsActive())
@@ -438,7 +415,7 @@ int main()
             renderer.drawModel(
                 mirrorModel,
                 mirrorTransform,
-                glm::vec3(0.8f, 0.8f, 0.8f)
+                glm::vec3(0.8f)
             );
         }
 
@@ -456,6 +433,7 @@ int main()
     floorModel.cleanup();
     wallModel.cleanup();
     mirrorModel.cleanup();
+    doorModel.cleanup();
 
     renderer.shutdown();
 
