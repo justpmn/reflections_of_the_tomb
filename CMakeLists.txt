@@ -68,8 +68,16 @@ glad_add_library(
 add_executable(
     reflections_of_the_tomb
     src/main.cpp
+    src/rendering/Renderer.cpp
+    src/rendering/Shader.cpp
     src/mirror/Mirror.cpp
     src/mirror/MirrorSystem.cpp
+)
+
+target_include_directories(
+    reflections_of_the_tomb
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
