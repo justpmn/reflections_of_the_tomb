@@ -1,4 +1,6 @@
+
 #include <iostream>
+
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
@@ -25,6 +27,7 @@ int main()
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+
     glfwWindowHint(
         GLFW_OPENGL_PROFILE,
         GLFW_OPENGL_CORE_PROFILE
@@ -49,8 +52,10 @@ int main()
         reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)))
     {
         std::cerr << "Failed to initialize GLAD\n";
+
         glfwDestroyWindow(window);
         glfwTerminate();
+
         return -1;
     }
 
@@ -59,21 +64,29 @@ int main()
     );
 
     int width, height;
+
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
 
+    // Initialize renderer.
     Renderer renderer;
 
     if (!renderer.initialize())
     {
         std::cerr << "Renderer initialization failed\n";
+
         glfwDestroyWindow(window);
         glfwTerminate();
+
         return -1;
     }
 
-    // Load the 3D mirror model.
+    // ==========================================
+    // LOAD 3D MIRROR MODEL
+    // ==========================================
+
     Model mirrorModel;
+
     bool mirrorLoaded = mirrorModel.load(
         "assets/models/mirrors/mirror_complete.glb"
     );
@@ -87,8 +100,8 @@ int main()
         std::cerr << "Failed to load 3D mirror model\n";
     }
 
-    // Initial mirror position and scale.
-    glm::mat4 mirrorTransform = glm::mat4(1.0f);
+    // Position and scale the mirror.
+    glm::mat4 mirrorTransform(1.0f);
 
     mirrorTransform = glm::translate(
         mirrorTransform,
@@ -100,9 +113,42 @@ int main()
         glm::vec3(0.5f, 0.5f, 0.5f)
     );
 
+    // ==========================================
+    // LOAD KAYKIT DUNGEON FLOOR
+    // ==========================================
+
+    Model floorModel;
+
+    bool floorLoaded = floorModel.load(
+        "assets/vendor/kaykit_dungeon/"
+        "KayKit_Dungeon_Pack_1.1_FREE/"
+        "Assets/gltf/floor_tile_large.gltf"
+    );
+
+    if (floorLoaded)
+    {
+        std::cout << "Dungeon floor loaded successfully!\n";
+    }
+    else
+    {
+        std::cerr << "Failed to load dungeon floor!\n";
+    }
+
+    // Position and scale the dungeon floor.
+    glm::mat4 floorTransform(1.0f);
+
+    floorTransform = glm::translate(
+        floorTransform,
+        glm::vec3(0.0f, -0.5f, 0.0f)
+    );
+
+    // ==========================================
+    // INITIALIZE PUZZLE
+    // ==========================================
+
     PuzzleSystem puzzle;
 
-    std::cout << "=== Reflections of the Tomb ===\n";
+    std::cout << "\n=== Reflections of the Tomb ===\n";
     std::cout << "1 - Hit false ruby\n";
     std::cout << "2 - Hit real ruby\n";
     std::cout << "R - Reset puzzle\n";
@@ -112,10 +158,15 @@ int main()
     bool previous2 = false;
     bool previousR = false;
 
+    // ==========================================
+    // MAIN GAME LOOP
+    // ==========================================
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
 
+        // Exit game.
         if (glfwGetKey(window, GLFW_KEY_ESCAPE)
             == GLFW_PRESS)
         {
@@ -154,7 +205,21 @@ int main()
         previous2 = key2;
         previousR = keyR;
 
+        // ======================================
+        // RENDER FRAME
+        // ======================================
+
         renderer.beginFrame();
+
+        // Render the textured dungeon floor first.
+        if (floorLoaded)
+        {
+            renderer.drawModel(
+                floorModel,
+                floorTransform,
+                glm::vec3(1.0f, 1.0f, 1.0f)
+            );
+        }
 
         // Real ruby: red until puzzle solved.
         if (puzzle.isSolved())
@@ -223,8 +288,14 @@ int main()
         glfwSwapBuffers(window);
     }
 
-    // Clean up while the OpenGL context is still active.
+    // ==========================================
+    // CLEANUP
+    // ==========================================
+
+    // Delete model resources while OpenGL is active.
+    floorModel.cleanup();
     mirrorModel.cleanup();
+
     renderer.shutdown();
 
     glfwDestroyWindow(window);

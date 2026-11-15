@@ -218,7 +218,7 @@ void Renderer::drawModel(
         );
     }
 
-    model.draw();
+    model.draw(modelShader.ID);
 }
 
 void Renderer::shutdown()
