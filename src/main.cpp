@@ -8,6 +8,12 @@
 #include "rendering/Renderer.h"
 #include "rendering/Model.h"
 #include "gameplay/PuzzleSystem.h"
+#include "beam/BeamTracer.h"
+#include "gameplay/BeamPuzzleBridge.h"
+#include "mirror/Mirror.h"
+#include "rendering/BeamRenderer.h"
+
+#include <vector>
 
 void framebufferSizeCallback(
     GLFWwindow* window, int width, int height)
@@ -71,6 +77,18 @@ int main()
         glfwTerminate();
         return -1;
     }
+    BeamRenderer beamRenderer;
+
+if (!beamRenderer.initialize())
+{
+    std::cerr << "Beam renderer initialization failed!\n";
+
+    renderer.shutdown();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+
+    return -1;
+}
 
     // Load the 3D mirror model.
     Model mirrorModel;
@@ -101,12 +119,48 @@ int main()
     );
 
     PuzzleSystem puzzle;
+    
+    // Beam emitter.
+const glm::vec2 beamOrigin(0.0f, 0.0f);
+const glm::vec2 beamDirection(1.0f, 0.0f);
+const float beamHeight = 1.0f;
+
+// Two mirrors from Peter's working demo.
+// Mirror 1 starts misaligned.
+std::vector<Mirror> mirrors;
+
+mirrors.emplace_back(
+    glm::vec2(5.0f, 0.0f),
+    4.0f, 20.0f, -180.0f, 180.0f
+);
+
+mirrors.emplace_back(
+    glm::vec2(5.0f, 5.0f),
+    4.0f, 135.0f, -180.0f, 180.0f
+);
+
+// Real ruby reached after two reflections.
+std::vector<RubyTarget> rubies = {
+    {glm::vec3(-2.0f, 1.0f, 5.0f), 0.3f, true}
+};
+
+// Same walls as the beam demo.
+std::vector<WallSegment> walls = {
+    {{-3.0f, -1.5f}, {9.0f, -1.5f}},
+    {{ 9.0f, -1.5f}, {9.0f,  6.5f}},
+    {{ 9.0f,  6.5f}, {-3.0f, 6.5f}},
+    {{-3.0f,  6.5f}, {-3.0f, -1.5f}}
+};
+
+std::size_t selectedMirror = 0;
+double previousTime = glfwGetTime();
+bool previousSolved = false;
 
     std::cout << "=== Reflections of the Tomb ===\n";
-    std::cout << "1 - Hit false ruby\n";
-    std::cout << "2 - Hit real ruby\n";
-    std::cout << "R - Reset puzzle\n";
-    std::cout << "ESC - Exit\n";
+std::cout << "1 / 2 - Select mirror\n";
+std::cout << "Q / E - Rotate selected mirror\n";
+std::cout << "R - Reset puzzle and mirrors\n";
+std::cout << "ESC - Exit\n";
 
     bool previous1 = false;
     bool previous2 = false;
@@ -115,6 +169,25 @@ int main()
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+        double now = glfwGetTime();
+float dt = static_cast<float>(now - previousTime);
+previousTime = now;
+
+// Select which mirror to rotate.
+if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+    selectedMirror = 0;
+
+if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+    selectedMirror = 1;
+
+// Rotate the selected mirror.
+const float rotationSpeed = 50.0f;
+
+if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    mirrors[selectedMirror].rotateLeft(rotationSpeed * dt);
+
+if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    mirrors[selectedMirror].rotateRight(rotationSpeed * dt);
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE)
             == GLFW_PRESS)
@@ -122,38 +195,49 @@ int main()
             glfwSetWindowShouldClose(window, true);
         }
 
-        bool key1 = glfwGetKey(
-            window, GLFW_KEY_1) == GLFW_PRESS;
-
-        bool key2 = glfwGetKey(
-            window, GLFW_KEY_2) == GLFW_PRESS;
-
         bool keyR = glfwGetKey(
             window, GLFW_KEY_R) == GLFW_PRESS;
 
-        // Respond once per key press.
-        if (key1 && !previous1)
-        {
-            puzzle.hitRuby(false);
-            std::cout << "False ruby hit!\n";
-        }
+       if (keyR && !previousR)
+{
+    mirrors[0].setAngle(20.0f);
+    mirrors[1].setAngle(135.0f);
 
-        if (key2 && !previous2)
-        {
-            puzzle.hitRuby(true);
-            std::cout << "Real ruby hit!\n";
-        }
-
-        if (keyR && !previousR)
-        {
-            puzzle.reset();
-            std::cout << "Puzzle reset!\n";
-        }
-
-        previous1 = key1;
-        previous2 = key2;
+    puzzle.reset();
+    std::cout << "Puzzle reset!\n";
+}
+    
         previousR = keyR;
 
+        BeamTraceResult beamResult = BeamTracer::traceWithRubies(
+    beamOrigin,
+    beamDirection,
+    mirrors,
+    rubies,
+    4,
+    30.0f,
+    beamHeight,
+    walls
+);
+
+// Only activate the puzzle when the real ruby is hit.
+if (beamResult.hitRubyIndex >= 0 && !puzzle.isSolved())
+{
+    BeamPuzzleBridge::processAbsorbingTrace(
+        beamResult,
+        rubies,
+        puzzle
+    );
+}
+
+// Print only when the puzzle becomes solved.
+if (puzzle.isSolved() && !previousSolved)
+{
+    std::cout << "REAL RUBY ACTIVATED!\n";
+    std::cout << "Door opened! Traps deactivated!\n";
+}
+
+previousSolved = puzzle.isSolved();
         renderer.beginFrame();
 
         // Real ruby: red until puzzle solved.
@@ -211,21 +295,26 @@ int main()
         }
 
         // Render the 3D mirror.
-        if (mirrorLoaded)
-        {
-            renderer.drawModel(
-                mirrorModel,
-                mirrorTransform,
-                glm::vec3(0.8f, 0.8f, 0.8f)
-            );
-        }
+if (mirrorLoaded)
+{
+    renderer.drawModel(
+        mirrorModel,
+        mirrorTransform,
+        glm::vec3(0.8f, 0.8f, 0.8f)
+    );
+}
 
-        glfwSwapBuffers(window);
+// Draw the calculated light path.
+beamRenderer.draw(beamResult.path);
+beamRenderer.drawMirrors(mirrors, selectedMirror);
+
+glfwSwapBuffers(window);
     }
 
     // Clean up while the OpenGL context is still active.
-    mirrorModel.cleanup();
-    renderer.shutdown();
+    beamRenderer.shutdown();
+mirrorModel.cleanup();
+renderer.shutdown();
 
     glfwDestroyWindow(window);
     glfwTerminate();
