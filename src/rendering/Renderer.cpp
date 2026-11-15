@@ -1,4 +1,4 @@
-﻿
+
 #include "Renderer.h"
 
 #include <iostream>
@@ -194,7 +194,7 @@ namespace
     }
 
     // Configure Blinn-Phong lighting uniforms.
-    void setLightingUniforms(const Shader& shader)
+    void setLightingUniforms(const Shader& shader, const glm::vec3& eye)
     {
         GLint lightDirectionLocation =
             glGetUniformLocation(shader.ID, "uLightDirection");
@@ -218,7 +218,7 @@ namespace
             glUniform3f(lightDirectionLocation, -0.5f, 1.0f, 0.5f);
 
         if (viewPositionLocation != -1)
-            glUniform3f(viewPositionLocation, 0.0f, 6.0f, 10.0f);
+            glUniform3f(viewPositionLocation, eye.x, eye.y, eye.z);
 
         if (ambientLocation != -1)
             glUniform1f(ambientLocation, 0.35f);
@@ -252,6 +252,10 @@ namespace
 
         GLint colorLocation =
             glGetUniformLocation(shader.ID, "uColor");
+        const GLint materialLocation = glGetUniformLocation(shader.ID,"uMaterialColor");
+        if (materialLocation != -1) glUniform4f(materialLocation,1,1,1,1);
+        const GLint vertexColorLocation=glGetUniformLocation(shader.ID,"uHasVertexColor");
+        if(vertexColorLocation!=-1) glUniform1i(vertexColorLocation,GL_FALSE);
 
         if (modelLocation != -1)
         {
@@ -501,7 +505,7 @@ void Renderer::drawModel(
         return;
 
     modelShader.use();
-    setLightingUniforms(modelShader);
+    setLightingUniforms(modelShader, glm::vec3(glm::inverse(viewMatrix)[3]));
 
     setModelUniforms(
         modelShader,
@@ -525,7 +529,7 @@ void Renderer::drawModelMesh(
         return;
 
     modelShader.use();
-    setLightingUniforms(modelShader);
+    setLightingUniforms(modelShader, glm::vec3(glm::inverse(viewMatrix)[3]));
 
     setModelUniforms(
         modelShader,
@@ -547,7 +551,7 @@ void Renderer::drawGemstone(
         return;
 
     modelShader.use();
-    setLightingUniforms(modelShader);
+    setLightingUniforms(modelShader, glm::vec3(glm::inverse(viewMatrix)[3]));
 
     GLint hasTextureLocation =
         glGetUniformLocation(modelShader.ID, "uHasTexture");
@@ -727,7 +731,7 @@ void Renderer::drawBeam(
     }
 
     if (intensityLocation != -1)
-        glUniform1f(intensityLocation, 2.5f);
+        glUniform1f(intensityLocation, 1.15f);
 
     // Additive blending creates a brighter emissive appearance.
     glEnable(GL_BLEND);

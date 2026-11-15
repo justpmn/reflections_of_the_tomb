@@ -4,10 +4,13 @@
 in vec3 Normal;
 in vec2 TexCoords;
 in vec3 FragPos;
+in vec4 VertexColor;
+uniform bool uHasVertexColor;
 
 out vec4 FragColor;
 
 uniform vec3 uColor;
+uniform vec4 uMaterialColor;
 uniform sampler2D uTexture;
 uniform bool uHasTexture;
 
@@ -22,11 +25,12 @@ uniform float uShininess;
 void main()
 {
     // Get the base colour from the texture or uniform.
-    vec3 baseColor = uColor;
+    vec3 baseColor = uColor * uMaterialColor.rgb;
+    if(uHasVertexColor) baseColor *= VertexColor.rgb;
 
     if (uHasTexture)
     {
-        baseColor = texture(uTexture, TexCoords).rgb;
+        baseColor *= texture(uTexture, TexCoords).rgb;
     }
 
     // Normalize the surface normal.

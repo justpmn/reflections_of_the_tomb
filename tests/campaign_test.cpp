@@ -7,11 +7,10 @@
 void require(bool condition,const char* message) { if(!condition) throw std::runtime_error(message); }
 
 // Navigate real movement/collision along a BFS floor route, never teleport to the exit.
-void walkToExit(GameSession& g) {
+void walkTo(GameSession& g, glm::ivec2 goal, bool expectExit=false) {
     const auto l=g.levels.current();
     const auto p=g.player.position();
     const auto start=l.worldToCell({p.x,0,p.z});
-    const auto goal=l.doors[0].cell;
     auto index=[&](glm::ivec2 c){return c.y*l.width+c.x;};
     std::vector<int> parent(l.width*l.height,-1); std::queue<glm::ivec2> todo;
     todo.push(start); parent[index(start)]=index(start);
@@ -21,6 +20,8 @@ void walkToExit(GameSession& g) {
         for(auto d:directions) {
             auto n=c+d;
             if(!l.inBounds(n)||!l.isWalkable(n)||parent[index(n)]>=0) continue;
+            const int trap=l.trapAt(n);
+            if(trap>=0 && g.traps[trap].isActive()) continue;
             parent[index(n)]=index(c);todo.push(n);
         }
     }
@@ -41,7 +42,7 @@ void walkToExit(GameSession& g) {
         }
         require(arrived,"Player collision unexpectedly blocks route to exit");
     }
-    require(false,"Entering the unlocked exit must advance campaign");
+    require(!expectExit,"Entering the unlocked exit must advance campaign");
 }
 
 int main() {
@@ -64,13 +65,37 @@ int main() {
             require(g.reset(),"Reset current chamber");
             require(!g.solved(),"Reset closes doors and clears ruby activation");
             for(size_t i=0;i<g.mirrors.size();++i) require(g.mirrors[i].getAngle()==l.mirrors[i].angleDeg,"Reset mirror angle");
-            for(size_t i=0;i<g.mirrors.size();++i) g.mirrors[i].setAngle(l.mirrors[i].solutionDeg);
+            // Solve again using only walking and the proximity-gated rotate API.
+            for(size_t i=0;i<g.mirrors.size();++i) {
+                const auto cell=l.mirrors[i].cell;
+                const glm::ivec2 options[]={{-1,0},{1,0},{0,-1},{0,1}};
+                bool reached=false;
+                for(auto offset:options) if(l.isWalkable(cell+offset) && !l.isPit(cell+offset)) {
+                    walkTo(g,cell+offset);reached=true;break;
+                }
+                require(reached && g.nearbyMirror()==static_cast<int>(i),"Walking reaches intended interactive mirror");
+                const float difference=l.mirrors[i].solutionDeg-g.mirrors[i].getAngle();
+                const int steps=static_cast<int>(std::abs(difference));
+                for(int step=0;step<steps;++step) require(g.rotate(difference<0?-1.f:1.f),"Nearby mirror must rotate");
+            }
+            require(g.solved(),"Player-controlled mirror rotations solve the level");
             for(int i=0;i<25;++i) g.update(0,0,.05f);
-            walkToExit(g);
+            walkTo(g,l.doors[0].cell,true);
             std::cout<<"PASS real beams, reset, collision route and exit: "<<l.name<<'\n';
         }
         require(g.victory,"Final exit reaches victory");
         require(g.restart()&&!g.victory&&g.levels.index()==0&&!g.solved(),"Restart clears completed campaign");
+        require(g.levels.loadIndex(2)&&g.reset(),"Load hazard chamber");
+        const auto l=g.levels.current();
+        const auto spike=l.cellCenterXZ(l.traps[0].cell);
+        // Test fixture places the player on a hazard; gameplay must respawn at the authored spawn.
+        g.player=player3d::PlayerMovement3D({spike.x,spike.y});g.update(0,0,.016f);
+        require(g.deaths==1,"Active spikes cause respawn");
+        const auto spawn=l.cellCenterXZ(l.playerSpawn);
+        require(glm::length(glm::vec2(g.player.position().x,g.player.position().z)-spawn)<.01f,"Hazard respawn uses level spawn");
+        const auto pit=l.cellCenterXZ({6,4});
+        g.player=player3d::PlayerMovement3D({pit.x,pit.y});g.update(0,0,.016f);
+        require(g.deaths==2,"Pits cause respawn");
     } catch(const std::exception& e) {std::cerr<<"FAIL "<<e.what()<<'\n';return 1;}
     return 0;
 }

@@ -1,5 +1,12 @@
 # Reflections of the Tomb
 
+The `integration` branch now includes a three-level playable 3D campaign, menus,
+music/effects and Ranger idle/walk animation. Run `Play.cmd` after building, or use
+the packaged `build-desktop/presentation/Play.cmd`.
+
+See [playing and presentation instructions](docs/PLAYING.md) and the
+[integration status and verification record](docs/INTEGRATION_STATUS.md).
+
 ## Overview
 
 **Reflections of the Tomb** is a 3D puzzle game set in an ancient temple where players manipulate mirrors to redirect beams of light, activate rubies, disable traps, and unlock pathways.
@@ -144,8 +151,10 @@ reflectionsofthetomb/
 
 ## Progress and Limitations
 
-The project currently has a working OpenGL application, a modular codebase, Pure C++ graphics demonstrations, and tested reflection mathematics. Ray-plane intersections and single-mirror reflections have been implemented and verified using automated tests.
-
-The main game is still under development. Multiple-mirror propagation, finite mirror collisions, visual beam rendering, player interactions, and complete 3D environment integration are not yet finished.
+The integration campaign includes continuous multi-mirror tracing, absorbing ruby
+targets, three authored 3D chambers, player collision and nearby mirror controls,
+doors/traps, level transitions and victory. The original standalone graphics
+demonstrations and tests are preserved. See `docs/INTEGRATION_STATUS.md` for current
+verification and remaining presentation checks.
 
 **Reflections of the Tomb** — C++ / OpenGL

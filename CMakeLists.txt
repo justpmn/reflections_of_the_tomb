@@ -9,6 +9,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
+# Keep assert-based team tests active in Release configurations too.
+if(MSVC)
+    add_compile_options(/UNDEBUG)
+else()
+    add_compile_options(-UNDEBUG)
+endif()
 
 # --------------------------------------------------
 # GLFW
@@ -70,6 +76,7 @@ add_executable(
     reflections_of_the_tomb
     src/main.cpp
     src/core/GameApplication.cpp
+    src/core/Audio.cpp
     src/gameplay/GameSession.cpp
     src/world/Level.cpp
     src/world/LevelManager.cpp
@@ -590,9 +597,45 @@ if(WIN32)
         endif()
     endforeach()
 endif()
-# Keep assert-based team tests active in Release configurations too.
-if(MSVC)
-    add_compile_options(/UNDEBUG)
-else()
-    add_compile_options(-UNDEBUG)
+
+
+# Register Jesse's existing unit tests, which were previously absent from CTest.
+foreach(test_name door trap ruby ruby_collision puzzle puzzle_beam)
+    add_executable(${test_name}_test tests/${test_name}_test.cpp
+        src/gameplay/PuzzleSystem.cpp src/gameplay/RubyCollision.cpp)
+    target_link_libraries(${test_name}_test PRIVATE campaign)
+    add_test(NAME ${test_name} COMMAND ${test_name}_test)
+endforeach()
+add_executable(level_export_obj demos/level_export_obj.cpp)
+target_link_libraries(level_export_obj PRIVATE campaign)
+option(ENABLE_RENDER_SMOKE_TESTS "Run tests requiring an OpenGL desktop and audio device" OFF)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    foreach(level RANGE 1 3)
+        add_test(NAME render_level_${level} COMMAND reflections_of_the_tomb --smoke --level ${level})
+        set_tests_properties(render_level_${level} PROPERTIES LABELS "render" TIMEOUT 30)
+    endforeach()
+endif()
+
+add_executable(audio_decode_test tests/audio_decode_test.cpp src/core/Audio.cpp)
+target_include_directories(audio_decode_test PRIVATE src)
+target_compile_definitions(audio_decode_test PRIVATE AUDIO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/Audio and Sounds")
+if(UNIX)
+    target_link_libraries(audio_decode_test PRIVATE pthread ${CMAKE_DL_LIBS} m)
+    target_link_libraries(reflections_of_the_tomb PRIVATE pthread ${CMAKE_DL_LIBS} m)
+endif()
+add_test(NAME audio_decode COMMAND audio_decode_test)
+add_executable(software_raster_demo experiments/software_raster_demo/main.cpp)
+add_test(NAME software_raster_algorithms COMMAND software_raster_demo --self-test)
+add_custom_target(presentation_build
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DEXECUTABLE=$<TARGET_FILE:reflections_of_the_tomb>"
+        "-DDESTINATION=${CMAKE_CURRENT_BINARY_DIR}/presentation"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackagePresentation.cmake"
+    DEPENDS reflections_of_the_tomb VERBATIM)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    foreach(screen start pause controls victory)
+        add_test(NAME render_${screen} COMMAND reflections_of_the_tomb --smoke --screen ${screen})
+        set_tests_properties(render_${screen} PROPERTIES LABELS "render" TIMEOUT 30)
+    endforeach()
 endif()

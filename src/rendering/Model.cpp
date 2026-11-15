@@ -6,6 +6,9 @@
 #include <filesystem>
 #include <cmath>
 #include <algorithm>
+#include <cstring>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #define CGLTF_IMPLEMENTATION
 #include "../third_party/cgltf.h"
@@ -211,14 +214,32 @@ namespace
     }
 }
 
+struct Model::AnimationState {
+    cgltf_data* model=nullptr;
+    cgltf_data* idle=nullptr;
+    cgltf_data* walk=nullptr;
+    const cgltf_animation* idleClip=nullptr;
+    const cgltf_animation* walkClip=nullptr;
+    std::vector<cgltf_node> rest;
+    struct Primitive {
+        const cgltf_skin* skin=nullptr;
+        std::vector<float> vertices;
+        std::vector<glm::uvec4> joints;
+        std::vector<glm::vec4> weights;
+    };
+    std::vector<Primitive> primitives;
+    ~AnimationState() {cgltf_free(model);cgltf_free(idle);cgltf_free(walk);}
+};
+
 Model::~Model()
 {
     cleanup();
 }
 
-bool Model::load(const std::string& filePath)
+bool Model::load(const std::string& filePath, bool retainSkin)
 {
     cleanup();
+    minBounds=glm::vec3(1e20f); maxBounds=glm::vec3(-1e20f);
 
     cgltf_options options{};
     cgltf_data* data = nullptr;
@@ -255,10 +276,15 @@ bool Model::load(const std::string& filePath)
         std::filesystem::path(filePath).parent_path();
 
     stbi_set_flip_vertically_on_load(true);
+    if (retainSkin) {
+        animation=new AnimationState;
+        animation->model=data;
+        animation->rest.assign(data->nodes,data->nodes+data->nodes_count);
+    }
 
     // Process a mesh using the world transformation of its node.
     auto processMesh = [&](const cgltf_mesh* sourceMesh,
-                           const cgltf_float worldMatrix[16])
+                           const cgltf_float worldMatrix[16], const cgltf_skin* skin)
     {
         if (!sourceMesh)
             return;
@@ -275,6 +301,9 @@ bool Model::load(const std::string& filePath)
             const cgltf_accessor* positions = nullptr;
             const cgltf_accessor* normals = nullptr;
             const cgltf_accessor* texCoords = nullptr;
+            const cgltf_accessor* joints = nullptr;
+            const cgltf_accessor* weights = nullptr;
+            const cgltf_accessor* colors = nullptr;
 
             for (cgltf_size k = 0;
                  k < primitive.attributes_count; ++k)
@@ -290,13 +319,19 @@ bool Model::load(const std::string& filePath)
 
                 if (attribute.type == cgltf_attribute_type_texcoord)
                     texCoords = attribute.data;
+                if (attribute.type == cgltf_attribute_type_joints) joints=attribute.data;
+                if (attribute.type == cgltf_attribute_type_weights) weights=attribute.data;
+                if (attribute.type == cgltf_attribute_type_color) colors=attribute.data;
             }
 
             if (!positions)
                 continue;
 
             std::vector<float> vertices;
+            std::vector<float> vertexColors;
             std::vector<unsigned int> indices;
+            AnimationState::Primitive animated;
+            animated.skin=skin;
 
             // Read vertices and apply node transformation.
             for (cgltf_size v = 0; v < positions->count; ++v)
@@ -304,6 +339,11 @@ bool Model::load(const std::string& filePath)
                 float position[3] = {};
                 float normal[3] = {0.0f, 1.0f, 0.0f};
                 float uv[2] = {};
+                if(colors) {
+                    float color[4]={1,1,1,1};
+                    cgltf_accessor_read_float(colors,v,color,cgltf_num_components(colors->type));
+                    vertexColors.insert(vertexColors.end(),color,color+4);
+                }
 
                 if (!cgltf_accessor_read_float(
                     positions, v, position, 3))
@@ -321,6 +361,14 @@ bool Model::load(const std::string& filePath)
                 {
                     cgltf_accessor_read_float(
                         texCoords, v, uv, 2);
+                }
+                if (animation && skin && joints && weights) {
+                    cgltf_uint j[4]{};float w[4]{};
+                    cgltf_accessor_read_uint(joints,v,j,4);
+                    cgltf_accessor_read_float(weights,v,w,4);
+                    animated.joints.emplace_back(j[0],j[1],j[2],j[3]);
+                    animated.weights.emplace_back(w[0],w[1],w[2],w[3]);
+                    animated.vertices.insert(animated.vertices.end(),{position[0],position[1],position[2],normal[0],normal[1],normal[2],uv[0],uv[1]});
                 }
 
                 transformPosition(worldMatrix, position);
@@ -363,8 +411,29 @@ bool Model::load(const std::string& filePath)
 
             if (vertices.empty() || indices.empty())
                 continue;
+            if(!normals) {
+                std::vector<glm::vec3> computed(vertices.size()/8,glm::vec3(0));
+                for(size_t i=0;i+2<indices.size();i+=3) {
+                    const auto a=indices[i],b=indices[i+1],c=indices[i+2];
+                    const auto n=glm::cross(glm::make_vec3(&vertices[b*8])-glm::make_vec3(&vertices[a*8]),
+                                           glm::make_vec3(&vertices[c*8])-glm::make_vec3(&vertices[a*8]));
+                    computed[a]+=n;computed[b]+=n;computed[c]+=n;
+                }
+                for(size_t i=0;i<computed.size();++i) if(glm::length(computed[i])>.00001f) {
+                    const auto n=glm::normalize(computed[i]);
+                    vertices[i*8+3]=n.x;vertices[i*8+4]=n.y;vertices[i*8+5]=n.z;
+                }
+            }
 
             Mesh mesh;
+            for(size_t v=0;v<vertices.size();v+=8) {
+                const auto p=glm::make_vec3(&vertices[v]);
+                mesh.minBounds=glm::min(mesh.minBounds,p);mesh.maxBounds=glm::max(mesh.maxBounds,p);
+            }
+            if (primitive.material) {
+                const auto* c = primitive.material->pbr_metallic_roughness.base_color_factor;
+                mesh.baseColor = glm::vec4(c[0],c[1],c[2],c[3]);
+            }
 
             glGenVertexArrays(1, &mesh.VAO);
             glGenBuffers(1, &mesh.VBO);
@@ -409,6 +478,13 @@ bool Model::load(const std::string& filePath)
                 stride, (void*)(6 * sizeof(float))
             );
             glEnableVertexAttribArray(2);
+            if(!vertexColors.empty()) {
+                mesh.hasVertexColor=true;
+                glGenBuffers(1,&mesh.colorVBO);glBindBuffer(GL_ARRAY_BUFFER,mesh.colorVBO);
+                glBufferData(GL_ARRAY_BUFFER,vertexColors.size()*sizeof(float),vertexColors.data(),GL_STATIC_DRAW);
+                glVertexAttribPointer(3,4,GL_FLOAT,GL_FALSE,4*sizeof(float),nullptr);
+                glEnableVertexAttribArray(3);
+            }
 
             glBindVertexArray(0);
 
@@ -433,6 +509,7 @@ bool Model::load(const std::string& filePath)
             }
 
             meshes.push_back(mesh);
+            if (animation) animation->primitives.push_back(std::move(animated));
         }
     };
 
@@ -460,7 +537,7 @@ bool Model::load(const std::string& filePath)
             meshReferenced[meshIndex] = true;
         }
 
-        processMesh(node->mesh, worldMatrix);
+        processMesh(node->mesh, worldMatrix, node->skin);
     }
 
     // Support models containing meshes without scene nodes.
@@ -477,10 +554,10 @@ bool Model::load(const std::string& filePath)
             0.0f, 0.0f, 0.0f, 1.0f
         };
 
-        processMesh(&data->meshes[i], identity);
+        processMesh(&data->meshes[i], identity, nullptr);
     }
 
-    cgltf_free(data);
+    if (!animation) cgltf_free(data);
 
     if (meshes.empty())
     {
@@ -523,6 +600,11 @@ void Model::drawMesh(
         return;
 
     const Mesh& mesh = meshes[meshIndex];
+    const GLint vertexColorLocation=glGetUniformLocation(shaderProgram,"uHasVertexColor");
+    if(vertexColorLocation!=-1) glUniform1i(vertexColorLocation,mesh.hasVertexColor);
+    const GLint materialLocation = glGetUniformLocation(shaderProgram, "uMaterialColor");
+    if (materialLocation != -1)
+        glUniform4f(materialLocation,mesh.baseColor.r,mesh.baseColor.g,mesh.baseColor.b,mesh.baseColor.a);
 
     const GLint textureLocation =
         glGetUniformLocation(shaderProgram, "uTexture");
@@ -566,11 +648,128 @@ unsigned int Model::getMeshCount() const
 {
     return static_cast<unsigned int>(meshes.size());
 }
+glm::vec3 Model::meshCenter(unsigned int i) const {
+    return (meshes.at(i).minBounds+meshes.at(i).maxBounds)*.5f;
+}
+glm::vec3 Model::meshSize(unsigned int i) const {
+    return meshes.at(i).maxBounds-meshes.at(i).minBounds;
+}
+
+bool Model::loadAnimations(const std::string& idleFile,const std::string& walkFile)
+{
+    if (!animation) return false;
+    auto loadClip=[&](const std::string& path,const char* name,cgltf_data*& data,const cgltf_animation*& clip) {
+        cgltf_options options{};
+        if(cgltf_parse_file(&options,path.c_str(),&data)!=cgltf_result_success) return false;
+        if(cgltf_load_buffers(&options,data,path.c_str())!=cgltf_result_success || cgltf_validate(data)!=cgltf_result_success) return false;
+        for(size_t i=0;i<data->animations_count;++i) if(data->animations[i].name && std::strcmp(data->animations[i].name,name)==0) clip=&data->animations[i];
+        if(!clip) return false;
+        // All animation targets must have a matching Ranger node. Reject incompatible rigs.
+        for(size_t i=0;i<clip->channels_count;++i) {
+            const auto& ch=clip->channels[i];bool found=false;
+            if(!ch.target_node || !ch.target_node->name) return false;
+            if(ch.sampler->interpolation!=cgltf_interpolation_type_linear && ch.sampler->interpolation!=cgltf_interpolation_type_step) return false;
+            for(size_t n=0;n<animation->model->nodes_count;++n)
+                if(animation->model->nodes[n].name && std::strcmp(animation->model->nodes[n].name,ch.target_node->name)==0) found=true;
+            if(!found) return false;
+        }
+        return true;
+    };
+    const bool ok=loadClip(idleFile,"Idle_A",animation->idle,animation->idleClip) && loadClip(walkFile,"Walking_A",animation->walk,animation->walkClip);
+    std::cout << (ok?"Ranger idle/walk rigs compatible\n":"Ranger animation incompatible; static fallback\n");
+    return ok;
+}
+
+bool Model::animate(float seconds,bool walking)
+{
+    if(!animation || !animation->idleClip || !animation->walkClip) return false;
+    const auto* clip=walking?animation->walkClip:animation->idleClip;
+    // Restore bind pose before each sample so switching clips never leaves stale joints.
+    for(size_t n=0;n<animation->rest.size();++n) {
+        auto& node=animation->model->nodes[n];const auto& rest=animation->rest[n];
+        std::copy(rest.translation,rest.translation+3,node.translation);
+        std::copy(rest.rotation,rest.rotation+4,node.rotation);
+        std::copy(rest.scale,rest.scale+3,node.scale);
+    }
+    float duration=0;
+    for(size_t i=0;i<clip->samplers_count;++i) {
+        const auto* input=clip->samplers[i].input;
+        float end=0;if(input->count) cgltf_accessor_read_float(input,input->count-1,&end,1);
+        duration=std::max(duration,end);
+    }
+    const float t=duration>0?std::fmod(std::max(seconds,0.f),duration):0;
+    for(size_t c=0;c<clip->channels_count;++c) {
+        const auto& channel=clip->channels[c];const auto& sampler=*channel.sampler;
+        cgltf_node* target=nullptr;
+        for(size_t n=0;n<animation->model->nodes_count;++n) {
+            auto& node=animation->model->nodes[n];
+            if(node.name && std::strcmp(node.name,channel.target_node->name)==0) {target=&node;break;}
+        }
+        if(!target || !sampler.input->count) continue;
+        size_t a=0;float ta=0,tb=0;
+        for(size_t k=1;k<sampler.input->count;++k) {
+            float time;cgltf_accessor_read_float(sampler.input,k,&time,1);
+            if(time>t) break;
+            a=k;
+        }
+        const size_t b=std::min(a+1,sampler.input->count-1);
+        cgltf_accessor_read_float(sampler.input,a,&ta,1);cgltf_accessor_read_float(sampler.input,b,&tb,1);
+        const float blend=sampler.interpolation==cgltf_interpolation_type_step || tb<=ta?0:std::clamp((t-ta)/(tb-ta),0.f,1.f);
+        glm::vec4 va(0),vb(0);
+        const int count=channel.target_path==cgltf_animation_path_type_rotation?4:3;
+        cgltf_accessor_read_float(sampler.output,a,glm::value_ptr(va),count);
+        cgltf_accessor_read_float(sampler.output,b,glm::value_ptr(vb),count);
+        if(channel.target_path==cgltf_animation_path_type_rotation) {
+            const auto q=glm::normalize(glm::slerp(glm::quat(va.w,va.x,va.y,va.z),glm::quat(vb.w,vb.x,vb.y,vb.z),blend));
+            target->rotation[0]=q.x;target->rotation[1]=q.y;target->rotation[2]=q.z;target->rotation[3]=q.w;
+            target->has_rotation=1;
+        } else {
+            const auto v=glm::mix(va,vb,blend);
+            if(channel.target_path==cgltf_animation_path_type_translation) {
+                std::copy(glm::value_ptr(v),glm::value_ptr(v)+3,target->translation);target->has_translation=1;
+            } else if(channel.target_path==cgltf_animation_path_type_scale) {
+                std::copy(glm::value_ptr(v),glm::value_ptr(v)+3,target->scale);target->has_scale=1;
+            }
+        }
+    }
+    for(size_t i=0;i<animation->primitives.size();++i) {
+        const auto& primitive=animation->primitives[i];
+        if(!primitive.skin || primitive.joints.empty()) continue;
+        std::vector<glm::mat4> matrices;
+        for(size_t j=0;j<primitive.skin->joints_count;++j) {
+            float world[16];cgltf_node_transform_world(primitive.skin->joints[j],world);
+            glm::mat4 inverse(1);
+            if(primitive.skin->inverse_bind_matrices) cgltf_accessor_read_float(primitive.skin->inverse_bind_matrices,j,glm::value_ptr(inverse),16);
+            matrices.push_back(glm::make_mat4(world)*inverse);
+        }
+        auto vertices=primitive.vertices;
+        for(size_t v=0;v<primitive.joints.size();++v) {
+            glm::mat4 skin(0);float total=0;
+            for(int k=0;k<4;++k) {
+                if(primitive.joints[v][k]>=matrices.size()) return false;
+                skin+=matrices[primitive.joints[v][k]]*primitive.weights[v][k];total+=primitive.weights[v][k];
+            }
+            if(total<.001f) continue;
+            skin/=total;
+            const auto pos=skin*glm::vec4(vertices[v*8],vertices[v*8+1],vertices[v*8+2],1);
+            const auto normal=glm::normalize(glm::mat3(skin)*glm::vec3(vertices[v*8+3],vertices[v*8+4],vertices[v*8+5]));
+            if(!std::isfinite(pos.x)||!std::isfinite(pos.y)||!std::isfinite(pos.z)) return false;
+            vertices[v*8]=pos.x;vertices[v*8+1]=pos.y;vertices[v*8+2]=pos.z;
+            vertices[v*8+3]=normal.x;vertices[v*8+4]=normal.y;vertices[v*8+5]=normal.z;
+        }
+        glBindBuffer(GL_ARRAY_BUFFER,meshes[i].VBO);
+        glBufferSubData(GL_ARRAY_BUFFER,0,vertices.size()*sizeof(float),vertices.data());
+    }
+    glBindBuffer(GL_ARRAY_BUFFER,0);
+    return true;
+}
 
 void Model::cleanup()
 {
+    delete animation;animation=nullptr;
     for (Mesh& mesh : meshes)
     {
+        if(mesh.colorVBO) glDeleteBuffers(1,&mesh.colorVBO);
         if (mesh.EBO)
             glDeleteBuffers(1, &mesh.EBO);
 

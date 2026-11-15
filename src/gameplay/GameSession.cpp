@@ -30,13 +30,13 @@ bool GameSession::initializeLevel() {
         walls.push_back({{b.min.x,b.max.z},{b.min.x,b.min.z}});
     }
     // Pedestals are solid to the player, but only mirror surfaces reflect beams.
-    auto pedestal = [&](glm::ivec2 cell) {
+    auto pedestal = [&](glm::ivec2 cell,float radius) {
         const auto p = l.cellCenterXZ(cell);
-        obstacles.push_back({p.x-.4f,p.x+.4f,p.y-.4f,p.y+.4f});
+        obstacles.push_back({p.x-radius,p.x+radius,p.y-radius,p.y+radius});
     };
-    for (const auto& m : l.mirrors) pedestal(m.cell);
-    for (const auto& r : l.rubies) pedestal(r.cell);
-    for (const auto& e : l.lights) pedestal(e.cell);
+    for (const auto& m : l.mirrors) pedestal(m.cell,.46f);
+    for (const auto& r : l.rubies) pedestal(r.cell,.63f);
+    for (const auto& e : l.lights) pedestal(e.cell,.30f);
     trace();
     return true;
 }
@@ -109,7 +109,9 @@ void GameSession::update(float x,float z,float dt) {
     const auto cell=l.worldToCell({p.x,0,p.z});
     const int t=l.trapAt(cell);
     if (l.isPit(cell) || (t>=0 && traps[t].isActive())) {
-        ++deaths; player.reset(); return;
+        ++deaths;
+        const auto spawn=l.cellCenterXZ(l.playerSpawn);
+        player=player3d::PlayerMovement3D({spawn.x,spawn.y},4.f,.28f); return;
     }
     const int d=l.doorAt(cell);
     if (d>=0 && doors[d].isOpen() && doorLift>=.95f) advance();

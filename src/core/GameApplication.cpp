@@ -30,7 +30,7 @@ void capture(int width,int height,const std::string& file) {
     std::ofstream out(file,std::ios::binary); out<<"P6\n"<<width<<' '<<height<<"\n255\n";
     for(int y=height-1;y>=0;--y) out.write(reinterpret_cast<char*>(pixels.data()+y*width*3),width*3);
 }
-int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot) {
+int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot,Screen initialScreen) {
     Renderer renderer;
     if(!renderer.initialize()) return 2;
     TempleScene scene;
@@ -43,11 +43,12 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
     if(preview>0) { if(!game.levels.loadIndex(preview) || !game.reset()) return 4; }
     Audio audio; audio.music();
     GameUI ui(renderer);
-    Screen screen=smoke?Screen::Play:Screen::Start, back=Screen::Start;
+    Screen screen=initialScreen, back=Screen::Start;
     std::array<bool,GLFW_KEY_LAST+1> previous{};
     bool previousMouse=false;
-    double last=glfwGetTime(),lastSound=0;
+    double last=glfwGetTime(),lastSound=0,lastStep=0;
     int frames=0;
+    float animationTime=0;
     while(!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         const double now=glfwGetTime(); const float dt=std::min(.05f,float(now-last)); last=now;
@@ -79,7 +80,13 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             }
             game.update(float(down(GLFW_KEY_D))-float(down(GLFW_KEY_A)),
                         float(down(GLFW_KEY_S))-float(down(GLFW_KEY_W)),dt);
-            if(!wasSolved && game.solved()) audio.effect("Ruby and Pedestal Sounds/permanent_ruby_sealing.wav");
+            if(!wasSolved && game.solved()) {
+                audio.effect("Ruby and Pedestal Sounds/permanent_ruby_sealing.wav");
+                audio.effect("Temple doors and traps/stone_door_opening_and_closing.ogg");
+            }
+            if(game.player.isMoving() && now-lastStep>.45) {
+                audio.effect("Player/stone_footsteps.wav");lastStep=now;
+            }
             if(deaths!=game.deaths) audio.effect("Player/respawn.wav");
             if(level!=game.levels.index()) audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
             if(game.victory) screen=Screen::Victory;
@@ -88,7 +95,8 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
         const glm::vec3 center(l.width*l.cellSize*.5f,0,l.height*l.cellSize*.47f);
         const float span=std::max(l.width*l.cellSize,l.height*l.cellSize*1.35f);
         renderer.setCamera(center+glm::vec3(0,span*.90f,span*.74f),center,float(width)/height);
-        renderer.beginFrame(); scene.draw(renderer,game);
+        if(screen==Screen::Play) animationTime+=dt;
+        renderer.beginFrame(); scene.draw(renderer,game,smoke?frames*.12f:animationTime,smoke&&frames>=4);
         glDisable(GL_DEPTH_TEST);
         if(screen==Screen::Play) {
             ui.panel(-1,.77f,2,.23f);
@@ -157,12 +165,13 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
 int runGame(int argc,char** argv) {
     try {
         locateAssets(argv[0]);
-        bool smoke=false;int preview=0;std::string screenshot;
+        bool smoke=false;int preview=0;std::string screenshot,screenName;
         for(int i=1;i<argc;++i) {
             const std::string arg=argv[i];
             if(arg=="--smoke") smoke=true;
             else if(arg=="--level" && i+1<argc) preview=std::stoi(argv[++i])-1;
             else if(arg=="--capture" && i+1<argc) screenshot=argv[++i];
+            else if(arg=="--screen" && i+1<argc) screenName=argv[++i];
         }
         if(!glfwInit()) {std::cerr<<"GLFW initialization failed\n";return 1;}
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,3);glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
@@ -173,7 +182,12 @@ int runGame(int argc,char** argv) {
         glfwMakeContextCurrent(window);glfwSwapInterval(1);
         if(!gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress))) {glfwDestroyWindow(window);glfwTerminate();return 1;}
         // All GL owners are destroyed inside play(), while the context is still alive.
-        const int result=play(window,smoke,preview,screenshot);
+        Screen initial=smoke?Screen::Play:Screen::Start;
+        if(screenName=="start") initial=Screen::Start;
+        else if(screenName=="pause") initial=Screen::Pause;
+        else if(screenName=="controls") initial=Screen::Controls;
+        else if(screenName=="victory") initial=Screen::Victory;
+        const int result=play(window,smoke,preview,screenshot,initial);
         glfwDestroyWindow(window);glfwTerminate();return result;
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 10;}
 }
