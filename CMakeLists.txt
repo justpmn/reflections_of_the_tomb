@@ -270,6 +270,29 @@ foreach(level_name level01 level02 level03)
     )
 endforeach()
 
+# --------------------------------------------------
+# Level -> Wavefront .obj exporter (Zahra)
+# --------------------------------------------------
+
+add_executable(
+    level_export_obj
+    demos/level_export_obj.cpp
+    src/world/Level.cpp
+    src/world/TempleMesh.cpp
+)
+
+target_include_directories(
+    level_export_obj
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    level_export_obj
+    PRIVATE
+        glm::glm
+)
+
 
 # Puzzle and beam integration test
 
