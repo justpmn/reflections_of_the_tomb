@@ -6,11 +6,17 @@
 | `src/world/Level.h/.cpp` | Level data, text-file loader, validation, solvability check |
 | `src/world/TempleMesh.h/.cpp` | Builds floor / wall / ceiling / pillar / pit geometry + collision boxes |
 | `src/world/LevelManager.h/.cpp` | Loads levels in order, `next()`, `reload()` |
+| `src/world/LevelScene.h/.cpp` | Level → list of 3D asset placements `{asset, transform}` + the asset table (no OpenGL) |
+| `src/world/LevelSceneRenderer.h/.cpp` | Loads each asset once with `Model` and draws the placements with `Renderer::drawModel` |
 | `assets/levels/level01-03.txt` | 3 puzzle levels, increasing difficulty |
 | `tests/level_test.cpp` | Automated tests (ctest `levels`), incl. a check that the angle convention matches `Mirror` |
+| `tests/level_scene_test.cpp` | Placement counts/positions, cutaway, and every asset file exists with the measured size (ctest `level_scene`) |
 | `demos/level_preview.cpp` | Prints a level from above with the solution beam (ctest `level_preview_level0N`) |
+| `demos/level_export_obj.cpp` | Writes the plain temple geometry as a Wavefront `.obj` |
 
 The build already compiles these into `reflections_of_the_tomb` and copies this folder to `<build>/levels/`.
+The game loads `assets/levels/level01.txt` relative to the working directory, so run it from the repo root:
+`.\build\reflections_of_the_tomb.exe`.
 
 ## Build & test
 ```powershell
@@ -79,6 +85,43 @@ const world::Level& L = levels.current();
 | **Joy** (mirrors) | `L.mirrors[i]`: `cell`, `angleDeg` (start), `rotatable`. Place at `cellCenter(cell, height)`. |
 | **Peter** (beams) | `L.lights[i]` (`world::LightSpawn`): `cell` + `dirToVec(dir)`. Blockers: walls & pillars (colliders), closed doors. Use `mirrorNormal()` so the angle convention matches. |
 | **Jesse** (puzzle) | `L.rubies`, `L.doors[i].needsRubies`, `L.traps[i].disabledByRuby`. Door opens when all needed rubies are lit; trap off when its ruby is lit. On exit: `levels.next()`. |
+
+## Drawing a level with the repo's assets
+`buildLevelScene(L)` returns one placement per thing to draw; `LevelSceneRenderer` draws them.
+
+| Level content | Asset | Placement |
+|---|---|---|
+| floor cell (not pit / trap) | KayKit `floor_tile_large` | cell centre, top flush with y = 0 |
+| visible wall face | KayKit `wall` | one slab per face that touches open space, flush with the cell edge, facing the room; hidden walls and faces towards a door cell are skipped |
+| `P` pillar | KayKit `pillar_decorated` | cell centre, half a cell wide, floor to ceiling |
+| `D` door | KayKit `wall_doorway` | door cell, facing into the temple |
+| `M` mirror | `models/mirrors/mirror_complete.glb` | cell centre, rotated to its **start** angle (45 = `\`, model +Z = `mirrorNormal(a)`) |
+| `R` ruby | `models/ruby/ruby_pedestal_floating.glb` | cell centre |
+| `T` trap | `models/traps/spike_trap.glb` | replaces the floor tile |
+| torches | KayKit `torch_mounted` | every 6th visible wall face (not cut-away ones), 60% up the wall |
+
+- All paths and measured sizes are in one table: `assetTable()` in `LevelScene.cpp`. `level_scene_test`
+  re-measures every file with cgltf and fails if a file is missing or its size changed.
+- Sizes are measured **with glTF node transforms applied**. That matches Joe's `Model`
+  (`feature/joe-temple-environment`). The `Model` on main ignores node transforms, so until Joe's
+  branch is merged `mirror_complete.glb` draws as separated parts and `spike_trap.glb` lies on its side.
+  Everything else is correct on main.
+- Scaling: the largest X/Z extent becomes `footprint × cellSize`. Walls, doorway and pillars are
+  stretched to `wallHeight`; the rest scale uniformly.
+- `levelToArea(L, centreXZ, halfSize, y)` places the level in the game world.
+  main.cpp uses centre (0,0) and half-size 4 (the demo room's ±4 area).
+- `LevelSceneOptions::cutawayToward`: walls whose front faces away from that direction (towards the
+  camera) are drawn at 25% height. main.cpp uses `(0, 1)` because the fixed camera looks north from +Z.
+
+```cpp
+world::LevelManager levels({"assets/levels/level01.txt", "assets/levels/level02.txt", "assets/levels/level03.txt"});
+levels.loadFirst();
+world::LevelScene scene = world::buildLevelScene(levels.current());
+world::LevelSceneRenderer sceneRenderer;
+sceneRenderer.load();                       // after the GL context exists
+// each frame, after renderer.beginFrame():
+sceneRenderer.draw(renderer, scene, world::levelToArea(levels.current(), {0, 0}, 4.0f));
+```
 
 ## The 3 levels
 1. **The Entrance Hall**: 1 mirror, 1 ruby. Teaches rotating a mirror.

@@ -19,6 +19,14 @@
 
 #include "player/PlayerMovement3D.h"
 
+// Zahra: draw the data-driven level (assets/levels/level01.txt) with the repo's
+// 3D assets. It is drawn in addition to the hard-coded demo room below; set this
+// to false to show only the demo room.
+#include "world/LevelManager.h"
+#include "world/LevelScene.h"
+#include "world/LevelSceneRenderer.h"
+constexpr bool kDrawLevelScene = true;
+
 void framebufferSizeCallback(
     GLFWwindow *window, int width, int height)
 {
@@ -123,6 +131,35 @@ else
 {
     std::cerr << "Failed to load Ranger model.\n";
 }
+
+    // Zahra: level scene. Placed over the demo room's +-4 area so it sits where
+    // the Ranger walks and the fixed camera looks.
+    world::LevelManager levels({"assets/levels/level01.txt",
+                                "assets/levels/level02.txt",
+                                "assets/levels/level03.txt"});
+    world::LevelScene levelScene;
+    world::LevelSceneRenderer levelSceneRenderer;
+    glm::mat4 levelToWorld(1.0f);
+
+    if (kDrawLevelScene)
+    {
+        if (levels.loadFirst())
+        {
+            // The fixed camera looks north from the south (+Z), so lower
+            // the walls whose front faces away from it.
+            world::LevelSceneOptions sceneOptions;
+            sceneOptions.cutawayToward = glm::vec2(0.0f, 1.0f);
+            levelScene = world::buildLevelScene(levels.current(), sceneOptions);
+            levelSceneRenderer.load();
+            levelToWorld = world::levelToArea(
+                levels.current(), glm::vec2(0.0f), 4.0f);
+        }
+        else
+        {
+            for (const auto& e : levels.errors())
+                std::cerr << e << '\n';
+        }
+    }
 
     // Initial mirror position and scale.
     glm::mat4 mirrorTransform = glm::mat4(1.0f);
@@ -302,6 +339,9 @@ bool previousE = false;
         previousSolved = puzzle.isSolved();
         renderer.beginFrame();
 
+        if (kDrawLevelScene)
+            levelSceneRenderer.draw(renderer, levelScene, levelToWorld);
+
         // Temporary HUD state indicators (not world-space ruby positions).
         // Real ruby indicator: red until puzzle solved, green when solved.
         if (puzzle.isSolved())
@@ -402,6 +442,7 @@ rangerTransform = glm::rotate(
     // Clean up while the OpenGL context is still active.
     beamRenderer.shutdown();
     mirrorModel.cleanup();
+    levelSceneRenderer.cleanup();
     renderer.shutdown();
     rangerModel.cleanup();
 

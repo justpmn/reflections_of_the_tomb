@@ -98,6 +98,8 @@ add_executable(
     src/world/Level.cpp
     src/world/TempleMesh.cpp
     src/world/LevelManager.cpp
+    src/world/LevelScene.cpp
+    src/world/LevelSceneRenderer.cpp
 )
 
 # Copy level files next to the executable: <build>/levels/level01.txt ...
@@ -238,6 +240,42 @@ target_compile_definitions(
 add_test(
     NAME levels
     COMMAND level_test
+)
+
+# --------------------------------------------------
+# Level scene (asset placements) tests (Zahra)
+# --------------------------------------------------
+
+add_executable(
+    level_scene_test
+    tests/level_scene_test.cpp
+    src/world/Level.cpp
+    src/world/TempleMesh.cpp
+    src/world/LevelScene.cpp
+)
+
+target_include_directories(
+    level_scene_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    level_scene_test
+    PRIVATE
+        glm::glm
+)
+
+target_compile_definitions(
+    level_scene_test
+    PRIVATE
+        ASSETS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+        LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels"
+)
+
+add_test(
+    NAME level_scene
+    COMMAND level_scene_test
 )
 
 # --------------------------------------------------
