@@ -17,6 +17,7 @@ public:
     bool initialize();
 
     void beginFrame();
+    void setCamera(const glm::vec3& eye, const glm::vec3& target, float aspect);
 
     void drawRectangle(
         float x,

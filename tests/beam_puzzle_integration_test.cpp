@@ -210,15 +210,6 @@ int main()
         std::vector<RubyTarget> rubies = {
             {glm::vec3(-2.5f, 1.25f, 0.0f), 0.45f, true},
             {glm::vec3(1.5f, 1.25f, 2.0f), 0.45f, false}
-            glm::vec2(5.0f, 0.0f),
-            4.0f, 45.0f, -180.0f, 180.0f);
-        levelMirrors.emplace_back(
-            glm::vec2(5.0f, 5.0f),
-            4.0f, 135.0f, -180.0f, 180.0f);
-
-        std::vector<RubyTarget> rubies = {
-            {glm::vec3(-2.0f, 1.0f, 5.0f), 0.3f, true},
-            {glm::vec3( 2.0f, 1.0f, 3.0f), 0.3f, false}
         };
 
         std::vector<WallSegment> walls = {
@@ -260,3 +251,4 @@ int main()
 
     return 0;
 }
+

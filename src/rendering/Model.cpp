@@ -325,6 +325,8 @@ bool Model::load(const std::string& filePath)
 
                 transformPosition(worldMatrix, position);
                 transformNormal(worldMatrix, normal);
+                minBounds = glm::min(minBounds, glm::vec3(position[0],position[1],position[2]));
+                maxBounds = glm::max(maxBounds, glm::vec3(position[0],position[1],position[2]));
 
                 vertices.insert(
                     vertices.end(),

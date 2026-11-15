@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <glad/gl.h>
+#include <glm/glm.hpp>
 
 class Model
 {
@@ -28,6 +29,8 @@ public:
 
     // Number of meshes loaded.
     unsigned int getMeshCount() const;
+    glm::vec3 minBounds{1e20f};
+    glm::vec3 maxBounds{-1e20f};
 
 private:
     struct Mesh

@@ -69,6 +69,11 @@ glad_add_library(
 add_executable(
     reflections_of_the_tomb
     src/main.cpp
+    src/core/GameApplication.cpp
+    src/gameplay/GameSession.cpp
+    src/world/Level.cpp
+    src/world/LevelManager.cpp
+    src/world/TempleMesh.cpp
 
     # Rendering
     src/rendering/Renderer.cpp
@@ -196,9 +201,9 @@ add_test(
 
 add_executable(
     level_demo
-    src/world/level_demo.cpp
-    src/world/Level.cpp
-    src/world/LevelManager.cpp
+    experiments/level_raster_demo/level_demo.cpp
+    experiments/level_raster_demo/Level.cpp
+    experiments/level_raster_demo/LevelManager.cpp
 )
 
 target_include_directories(
@@ -551,3 +556,43 @@ add_test(
     NAME player_movement_3d
     COMMAND player_movement_3d_test
 )
+
+# Integration campaign and Zahra's original level verification.
+add_library(campaign STATIC
+    src/gameplay/GameSession.cpp src/world/Level.cpp src/world/LevelManager.cpp
+    src/world/TempleMesh.cpp src/player/PlayerMovement3D.cpp src/mirror/Mirror.cpp
+    src/beam/BeamTracer.cpp src/beam/BeamSystem.cpp src/physics/Intersections.cpp
+    src/gameplay/Ruby.cpp src/gameplay/Door.cpp src/gameplay/Trap.cpp)
+target_include_directories(campaign PUBLIC src)
+target_link_libraries(campaign PUBLIC glm::glm)
+add_executable(level_test tests/level_test.cpp)
+target_link_libraries(level_test PRIVATE campaign)
+target_compile_definitions(level_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME levels COMMAND level_test)
+add_executable(campaign_test tests/campaign_test.cpp)
+target_link_libraries(campaign_test PRIVATE campaign)
+target_compile_definitions(campaign_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME campaign COMMAND campaign_test)
+add_executable(level_preview demos/level_preview.cpp src/world/Level.cpp)
+target_include_directories(level_preview PRIVATE src)
+target_link_libraries(level_preview PRIVATE glm::glm)
+foreach(level_name level01 level02 level03)
+    add_test(NAME level_preview_${level_name} COMMAND level_preview ${CMAKE_CURRENT_SOURCE_DIR}/assets/levels/${level_name}.txt)
+endforeach()
+target_compile_definitions(reflections_of_the_tomb PRIVATE GAME_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+if(WIN32)
+    target_link_libraries(reflections_of_the_tomb PRIVATE winmm)
+    foreach(runtime libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll)
+        get_filename_component(compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+        if(EXISTS "${compiler_dir}/${runtime}")
+            add_custom_command(TARGET reflections_of_the_tomb POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${compiler_dir}/${runtime}" "$<TARGET_FILE_DIR:reflections_of_the_tomb>")
+        endif()
+    endforeach()
+endif()
+# Keep assert-based team tests active in Release configurations too.
+if(MSVC)
+    add_compile_options(/UNDEBUG)
+else()
+    add_compile_options(-UNDEBUG)
+endif()

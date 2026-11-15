@@ -412,6 +412,12 @@ bool Renderer::initialize()
     return true;
 }
 
+void Renderer::setCamera(const glm::vec3& eye, const glm::vec3& target, float aspect)
+{
+    viewMatrix = glm::lookAt(eye, target, glm::vec3(0,1,0));
+    projectionMatrix = glm::perspective(glm::radians(45.f), aspect, .1f, 180.f);
+}
+
 // Clear the screen.
 void Renderer::beginFrame()
 {
