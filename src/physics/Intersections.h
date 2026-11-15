@@ -13,4 +13,12 @@ public:
         const glm::vec3& planeNormal,
         float& distance
     );
+    static bool raySegment2D(
+        const glm::vec2& rayOrigin,
+        const glm::vec2& rayDirection,
+        const glm::vec2& segmentA,
+        const glm::vec2& segmentB,
+        float& distance,
+        glm::vec2& hitPoint
+    );
 };

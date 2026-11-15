@@ -39,3 +39,46 @@ bool Intersections::rayPlane(
 
     return true;
 }
+bool Intersections::raySegment2D(
+    const glm::vec2& rayOrigin,
+    const glm::vec2& rayDirection,
+    const glm::vec2& segmentA,
+    const glm::vec2& segmentB,
+    float& distance,
+    glm::vec2& hitPoint)
+{
+    constexpr float EPSILON = 0.00001f;
+
+    auto cross2D = [](const glm::vec2& a, const glm::vec2& b) {
+        return a.x * b.y - a.y * b.x;
+    };
+
+    if (glm::dot(rayDirection, rayDirection) < EPSILON * EPSILON)
+        return false;
+
+    glm::vec2 r = glm::normalize(rayDirection);
+    glm::vec2 s = segmentB - segmentA;
+
+    if (glm::dot(s, s) < EPSILON * EPSILON)
+        return false;
+
+    float denominator = cross2D(r, s);
+
+    // Parallel ray and mirror surface.
+    if (std::abs(denominator) < EPSILON)
+        return false;
+
+    glm::vec2 offset = segmentA - rayOrigin;
+
+    float t = cross2D(offset, s) / denominator;
+    float u = cross2D(offset, r) / denominator;
+
+    // Behind ray origin, or outside finite mirror endpoints.
+    if (t <= EPSILON || u < -EPSILON || u > 1.0f + EPSILON)
+        return false;
+
+    distance = t;
+    hitPoint = rayOrigin + r * t;
+
+    return true;
+}
