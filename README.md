@@ -14,7 +14,7 @@ The project applies computer graphics concepts including geometric transformatio
 |---|---|
 | Peter Nyamu | Light reflection, ray casting, and beam collisions |
 | Kimberly Wangari | Player movement and interactions |
-| Joe Senetwo | Mirror transformations and rotation |
+| Joy Senetwo | Mirror transformations and rotation |
 | Zahra Isaiho | Level design and temple environment |
 | Jesse Mbugua | Rubies, traps, doors, and puzzle mechanics |
 | Joe Ndeto | Rendering, lighting, shaders, and assets |
