@@ -70,6 +70,7 @@ add_executable(
     reflections_of_the_tomb
     src/main.cpp
     src/rendering/Renderer.cpp
+    src/player/PlayerMovement3D.cpp
     src/rendering/Shader.cpp
     src/rendering/Model.cpp
     src/mirror/Mirror.cpp
@@ -445,4 +446,20 @@ target_link_libraries(
 add_test(
     NAME ruby_absorption
     COMMAND ruby_absorption_test
+)
+
+# 3D Player Movement Tests
+
+add_executable(player_movement_3d_test
+    tests/player_movement_3d_test.cpp
+    src/player/PlayerMovement3D.cpp
+)
+
+target_include_directories(player_movement_3d_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_test(
+    NAME player_movement_3d
+    COMMAND player_movement_3d_test
 )
