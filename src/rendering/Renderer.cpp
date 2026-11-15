@@ -3,15 +3,17 @@
 
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/constants.hpp>
 
 namespace
 {
     using VertexList = std::vector<float>;
 
-    // Add one triangle with its calculated surface normal.
+    // Add a triangle with its calculated surface normal.
     void addTriangle(
         VertexList& vertices,
         const glm::vec3& a,
@@ -39,7 +41,7 @@ namespace
         }
     }
 
-    // Add a box using six faces.
+    // Add a quad using two triangles.
     void addQuad(
         VertexList& vertices,
         const glm::vec3& a,
@@ -51,6 +53,7 @@ namespace
         addTriangle(vertices, a, c, d);
     }
 
+    // Add a box using six faces.
     void addBox(
         VertexList& vertices,
         const glm::vec3& center,
@@ -130,6 +133,21 @@ namespace
         return vertices;
     }
 
+    // Create unit beam geometry.
+    // Local dimensions: 1 x 1 x 1.
+    VertexList createBeam()
+    {
+        VertexList vertices;
+
+        addBox(
+            vertices,
+            glm::vec3(0.0f),
+            glm::vec3(1.0f)
+        );
+
+        return vertices;
+    }
+
     // Upload procedural geometry to OpenGL.
     void createMesh(
         const VertexList& vertices,
@@ -177,6 +195,107 @@ namespace
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
+    }
+
+    // Configure Blinn-Phong lighting uniforms.
+    void setLightingUniforms(const Shader& shader)
+    {
+        GLint lightDirectionLocation =
+            glGetUniformLocation(shader.ID, "uLightDirection");
+
+        GLint viewPositionLocation =
+            glGetUniformLocation(shader.ID, "uViewPos");
+
+        GLint ambientLocation =
+            glGetUniformLocation(shader.ID, "uAmbientStrength");
+
+        GLint diffuseLocation =
+            glGetUniformLocation(shader.ID, "uDiffuseStrength");
+
+        GLint specularLocation =
+            glGetUniformLocation(shader.ID, "uSpecularStrength");
+
+        GLint shininessLocation =
+            glGetUniformLocation(shader.ID, "uShininess");
+
+        if (lightDirectionLocation != -1)
+            glUniform3f(
+                lightDirectionLocation,
+                -0.5f, 1.0f, 0.5f
+            );
+
+        if (viewPositionLocation != -1)
+            glUniform3f(
+                viewPositionLocation,
+                0.0f, 7.0f, 12.0f
+            );
+
+        if (ambientLocation != -1)
+            glUniform1f(ambientLocation, 0.35f);
+
+        if (diffuseLocation != -1)
+            glUniform1f(diffuseLocation, 0.75f);
+
+        if (specularLocation != -1)
+            glUniform1f(specularLocation, 0.25f);
+
+        if (shininessLocation != -1)
+            glUniform1f(shininessLocation, 32.0f);
+    }
+
+    // Set common 3D transformation uniforms.
+    void setModelUniforms(
+        const Shader& shader,
+        const glm::mat4& modelMatrix,
+        const glm::mat4& viewMatrix,
+        const glm::mat4& projectionMatrix,
+        const glm::vec3& color)
+    {
+        GLint modelLocation =
+            glGetUniformLocation(shader.ID, "model");
+
+        GLint viewLocation =
+            glGetUniformLocation(shader.ID, "view");
+
+        GLint projectionLocation =
+            glGetUniformLocation(shader.ID, "projection");
+
+        GLint colorLocation =
+            glGetUniformLocation(shader.ID, "uColor");
+
+        if (modelLocation != -1)
+        {
+            glUniformMatrix4fv(
+                modelLocation, 1, GL_FALSE,
+                glm::value_ptr(modelMatrix)
+            );
+        }
+
+        if (viewLocation != -1)
+        {
+            glUniformMatrix4fv(
+                viewLocation, 1, GL_FALSE,
+                glm::value_ptr(viewMatrix)
+            );
+        }
+
+        if (projectionLocation != -1)
+        {
+            glUniformMatrix4fv(
+                projectionLocation, 1, GL_FALSE,
+                glm::value_ptr(projectionMatrix)
+            );
+        }
+
+        if (colorLocation != -1)
+        {
+            glUniform3f(
+                colorLocation,
+                color.r,
+                color.g,
+                color.b
+            );
+        }
     }
 }
 
@@ -257,9 +376,19 @@ bool Renderer::initialize()
         crystalVertexCount
     );
 
-    if (pedestalVAO == 0 || crystalVAO == 0)
+    // Create beam geometry.
+    createMesh(
+        createBeam(),
+        beamVAO,
+        beamVBO,
+        beamVertexCount
+    );
+
+    if (pedestalVAO == 0 ||
+        crystalVAO == 0 ||
+        beamVAO == 0)
     {
-        std::cerr << "Failed to create gemstone geometry.\n";
+        std::cerr << "Failed to create procedural geometry.\n";
         shutdown();
         return false;
     }
@@ -368,57 +497,20 @@ void Renderer::drawModel(
         return;
 
     modelShader.use();
+    setLightingUniforms(modelShader);
 
-    GLint modelLocation =
-        glGetUniformLocation(modelShader.ID, "model");
-
-    GLint viewLocation =
-        glGetUniformLocation(modelShader.ID, "view");
-
-    GLint projectionLocation =
-        glGetUniformLocation(modelShader.ID, "projection");
-
-    GLint colorLocation =
-        glGetUniformLocation(modelShader.ID, "uColor");
-
-    if (modelLocation != -1)
-    {
-        glUniformMatrix4fv(
-            modelLocation, 1, GL_FALSE,
-            glm::value_ptr(transform)
-        );
-    }
-
-    if (viewLocation != -1)
-    {
-        glUniformMatrix4fv(
-            viewLocation, 1, GL_FALSE,
-            glm::value_ptr(viewMatrix)
-        );
-    }
-
-    if (projectionLocation != -1)
-    {
-        glUniformMatrix4fv(
-            projectionLocation, 1, GL_FALSE,
-            glm::value_ptr(projectionMatrix)
-        );
-    }
-
-    if (colorLocation != -1)
-    {
-        glUniform3f(
-            colorLocation,
-            color.r,
-            color.g,
-            color.b
-        );
-    }
+    setModelUniforms(
+        modelShader,
+        transform,
+        viewMatrix,
+        projectionMatrix,
+        color
+    );
 
     model.draw(modelShader.ID);
 }
 
-// Draw only one selected mesh from an imported model.
+// Draw one selected mesh.
 void Renderer::drawModelMesh(
     const Model& model,
     unsigned int meshIndex,
@@ -429,57 +521,20 @@ void Renderer::drawModelMesh(
         return;
 
     modelShader.use();
+    setLightingUniforms(modelShader);
 
-    GLint modelLocation =
-        glGetUniformLocation(modelShader.ID, "model");
-
-    GLint viewLocation =
-        glGetUniformLocation(modelShader.ID, "view");
-
-    GLint projectionLocation =
-        glGetUniformLocation(modelShader.ID, "projection");
-
-    GLint colorLocation =
-        glGetUniformLocation(modelShader.ID, "uColor");
-
-    if (modelLocation != -1)
-    {
-        glUniformMatrix4fv(
-            modelLocation, 1, GL_FALSE,
-            glm::value_ptr(transform)
-        );
-    }
-
-    if (viewLocation != -1)
-    {
-        glUniformMatrix4fv(
-            viewLocation, 1, GL_FALSE,
-            glm::value_ptr(viewMatrix)
-        );
-    }
-
-    if (projectionLocation != -1)
-    {
-        glUniformMatrix4fv(
-            projectionLocation, 1, GL_FALSE,
-            glm::value_ptr(projectionMatrix)
-        );
-    }
-
-    if (colorLocation != -1)
-    {
-        glUniform3f(
-            colorLocation,
-            color.r,
-            color.g,
-            color.b
-        );
-    }
+    setModelUniforms(
+        modelShader,
+        transform,
+        viewMatrix,
+        projectionMatrix,
+        color
+    );
 
     model.drawMesh(meshIndex, modelShader.ID);
 }
 
-// Draw a gemstone and its pedestal.
+// Draw gemstone and pedestal.
 void Renderer::drawGemstone(
     const glm::mat4& transform,
     const glm::vec3& crystalColor)
@@ -488,60 +543,22 @@ void Renderer::drawGemstone(
         return;
 
     modelShader.use();
-
-    GLint modelLocation =
-        glGetUniformLocation(modelShader.ID, "model");
-
-    GLint viewLocation =
-        glGetUniformLocation(modelShader.ID, "view");
-
-    GLint projectionLocation =
-        glGetUniformLocation(modelShader.ID, "projection");
-
-    GLint colorLocation =
-        glGetUniformLocation(modelShader.ID, "uColor");
+    setLightingUniforms(modelShader);
 
     GLint hasTextureLocation =
         glGetUniformLocation(modelShader.ID, "uHasTexture");
 
-    if (viewLocation != -1)
-    {
-        glUniformMatrix4fv(
-            viewLocation, 1, GL_FALSE,
-            glm::value_ptr(viewMatrix)
-        );
-    }
-
-    if (projectionLocation != -1)
-    {
-        glUniformMatrix4fv(
-            projectionLocation, 1, GL_FALSE,
-            glm::value_ptr(projectionMatrix)
-        );
-    }
-
-    // These procedural objects do not use textures.
     if (hasTextureLocation != -1)
         glUniform1i(hasTextureLocation, GL_FALSE);
 
-    // Draw stone pedestal.
-    if (modelLocation != -1)
-    {
-        glUniformMatrix4fv(
-            modelLocation, 1, GL_FALSE,
-            glm::value_ptr(transform)
-        );
-    }
-
-    if (colorLocation != -1)
-    {
-        glUniform3f(
-            colorLocation,
-            0.38f,
-            0.34f,
-            0.29f
-        );
-    }
+    // Draw pedestal.
+    setModelUniforms(
+        modelShader,
+        transform,
+        viewMatrix,
+        projectionMatrix,
+        glm::vec3(0.38f, 0.34f, 0.29f)
+    );
 
     glBindVertexArray(pedestalVAO);
 
@@ -552,6 +569,9 @@ void Renderer::drawGemstone(
     );
 
     // Draw crystal.
+    GLint colorLocation =
+        glGetUniformLocation(modelShader.ID, "uColor");
+
     if (colorLocation != -1)
     {
         glUniform3f(
@@ -573,9 +593,141 @@ void Renderer::drawGemstone(
     glBindVertexArray(0);
 }
 
+// Draw one 3D beam segment.
+void Renderer::drawBeam(
+    const glm::vec3& start,
+    const glm::vec3& end,
+    const glm::vec3& color,
+    float thickness)
+{
+    if (!initialized || beamVAO == 0)
+        return;
+
+    glm::vec3 difference = end - start;
+
+    float beamLength = glm::length(difference);
+
+    if (beamLength < 0.0001f || thickness <= 0.0f)
+        return;
+
+    glm::vec3 direction = difference / beamLength;
+
+    // The beam geometry points along local positive Y.
+    glm::vec3 localUp(0.0f, 1.0f, 0.0f);
+
+    float dotProduct = glm::clamp(
+        glm::dot(localUp, direction),
+        -1.0f,
+        1.0f
+    );
+
+    glm::vec3 rotationAxis =
+        glm::cross(localUp, direction);
+
+    float axisLength = glm::length(rotationAxis);
+
+    glm::mat4 rotation(1.0f);
+
+    if (axisLength > 0.0001f)
+    {
+        rotationAxis /= axisLength;
+
+        float angle = std::acos(dotProduct);
+
+        rotation = glm::rotate(
+            glm::mat4(1.0f),
+            angle,
+            rotationAxis
+        );
+    }
+    else if (dotProduct < 0.0f)
+    {
+        rotation = glm::rotate(
+            glm::mat4(1.0f),
+            glm::pi<float>(),
+            glm::vec3(1.0f, 0.0f, 0.0f)
+        );
+    }
+
+    glm::vec3 midpoint = (start + end) * 0.5f;
+
+    glm::mat4 beamTransform(1.0f);
+
+    beamTransform = glm::translate(
+        beamTransform,
+        midpoint
+    );
+
+    beamTransform *= rotation;
+
+    beamTransform = glm::scale(
+        beamTransform,
+        glm::vec3(thickness, beamLength, thickness)
+    );
+
+    modelShader.use();
+    setLightingUniforms(modelShader);
+
+    GLint hasTextureLocation =
+        glGetUniformLocation(modelShader.ID, "uHasTexture");
+
+    if (hasTextureLocation != -1)
+        glUniform1i(hasTextureLocation, GL_FALSE);
+
+    setModelUniforms(
+        modelShader,
+        beamTransform,
+        viewMatrix,
+        projectionMatrix,
+        color
+    );
+
+    glBindVertexArray(beamVAO);
+
+    glDrawArrays(
+        GL_TRIANGLES,
+        0,
+        beamVertexCount
+    );
+
+    glBindVertexArray(0);
+}
+
+// Draw multiple beam segments.
+void Renderer::drawBeamSegments(
+    const std::vector<BeamSegment>& segments,
+    const glm::vec3& color,
+    float thickness)
+{
+    if (!initialized || segments.empty())
+        return;
+
+    for (const BeamSegment& segment : segments)
+    {
+        drawBeam(
+            segment.start,
+            segment.end,
+            color,
+            thickness
+        );
+    }
+}
+
 // Release OpenGL resources.
 void Renderer::shutdown()
 {
+    if (beamVBO != 0)
+    {
+        glDeleteBuffers(1, &beamVBO);
+        beamVBO = 0;
+    }
+
+    if (beamVAO != 0)
+    {
+        glDeleteVertexArrays(1, &beamVAO);
+        beamVAO = 0;
+    }
+
     if (pedestalVBO != 0)
     {
         glDeleteBuffers(1, &pedestalVBO);
@@ -617,6 +769,7 @@ void Renderer::shutdown()
 
     pedestalVertexCount = 0;
     crystalVertexCount = 0;
+    beamVertexCount = 0;
 
     initialized = false;
 }

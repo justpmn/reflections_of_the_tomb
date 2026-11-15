@@ -4,8 +4,11 @@
 #include "Model.h"
 
 #include <glm/glm.hpp>
+#include <vector>
+#include "../beam/BeamSegment.h"
 
-class Renderer {
+class Renderer
+{
 public:
     Renderer() = default;
     ~Renderer();
@@ -21,28 +24,37 @@ public:
         float height,
         float red,
         float green,
-        float blue
-    );
+        float blue);
 
     void drawModel(
-        const Model& model,
-        const glm::mat4& modelMatrix,
-        const glm::vec3& color
-    );
+        const Model &model,
+        const glm::mat4 &modelMatrix,
+        const glm::vec3 &color);
 
     // Draw one selected mesh using its own transform.
     void drawModelMesh(
-        const Model& model,
+        const Model &model,
         unsigned int meshIndex,
-        const glm::mat4& modelMatrix,
-        const glm::vec3& color
-    );
+        const glm::mat4 &modelMatrix,
+        const glm::vec3 &color);
 
     // Draw a procedural gemstone and its stone pedestal.
     void drawGemstone(
-        const glm::mat4& transform,
-        const glm::vec3& crystalColor
-    );
+        const glm::mat4 &transform,
+        const glm::vec3 &crystalColor);
+
+    // Draw a 3D light beam between two positions.
+    void drawBeam(
+        const glm::vec3 &start,
+        const glm::vec3 &end,
+        const glm::vec3 &color,
+        float thickness);
+
+    // Draw multiple segments of a reflected light beam.
+    void drawBeamSegments(
+        const std::vector<BeamSegment> &segments,
+        const glm::vec3 &color,
+        float thickness);
 
     void shutdown();
 
@@ -50,16 +62,24 @@ private:
     Shader shader;
     Shader modelShader;
 
+    // 2D rectangle buffers.
     unsigned int VAO = 0;
     unsigned int VBO = 0;
 
+    // Gemstone pedestal buffers.
     unsigned int pedestalVAO = 0;
     unsigned int pedestalVBO = 0;
     int pedestalVertexCount = 0;
 
+    // Gemstone crystal buffers.
     unsigned int crystalVAO = 0;
     unsigned int crystalVBO = 0;
     int crystalVertexCount = 0;
+
+    // Light beam buffers.
+    unsigned int beamVAO = 0;
+    unsigned int beamVBO = 0;
+    int beamVertexCount = 0;
 
     bool initialized = false;
 

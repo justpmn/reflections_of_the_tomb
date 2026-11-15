@@ -11,8 +11,17 @@ uniform vec3 uColor;
 uniform sampler2D uTexture;
 uniform bool uHasTexture;
 
+uniform vec3 uLightDirection;
+uniform vec3 uViewPos;
+
+uniform float uAmbientStrength;
+uniform float uDiffuseStrength;
+uniform float uSpecularStrength;
+uniform float uShininess;
+
 void main()
 {
+    // Get the base colour from the texture or uniform.
     vec3 baseColor = uColor;
 
     if (uHasTexture)
@@ -20,17 +29,39 @@ void main()
         baseColor = texture(uTexture, TexCoords).rgb;
     }
 
-    vec3 lightDirection = normalize(
-        vec3(-0.5, 1.0, 0.5)
+    // Normalize the surface normal.
+    vec3 normal = normalize(Normal);
+
+    // Direction towards the light.
+    vec3 lightDir = normalize(uLightDirection);
+
+    // Ambient lighting.
+    vec3 ambient = uAmbientStrength * baseColor;
+
+    // Diffuse lighting.
+    float diffuseFactor = max(
+        dot(normal, lightDir),
+        0.0
     );
 
-    float diffuse = max(
-        dot(normalize(Normal), lightDirection),
-        0.25
+    vec3 diffuse =
+        uDiffuseStrength * diffuseFactor * baseColor;
+
+    // Blinn-Phong specular lighting.
+    vec3 viewDir = normalize(uViewPos - FragPos);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+
+    float specularFactor = pow(
+        max(dot(normal, halfwayDir), 0.0),
+        uShininess
     );
 
-    vec3 ambient = baseColor * 0.35;
-    vec3 lighting = baseColor * diffuse * 0.65;
+    vec3 specular =
+        uSpecularStrength * specularFactor * vec3(1.0);
 
-    FragColor = vec4(ambient + lighting, 1.0);
+    // Combine lighting components.
+    vec3 result = ambient + diffuse + specular;
+
+    FragColor = vec4(result, 1.0);
 }
