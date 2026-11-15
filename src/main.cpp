@@ -231,7 +231,8 @@ int main()
         previousSolved = puzzle.isSolved();
         renderer.beginFrame();
 
-        // Real ruby: red until puzzle solved.
+        // Temporary HUD state indicators (not world-space ruby positions).
+        // Real ruby indicator: red until puzzle solved, green when solved.
         if (puzzle.isSolved())
         {
             renderer.drawRectangle(
@@ -245,7 +246,7 @@ int main()
                 0.9f, 0.1f, 0.2f);
         }
 
-        // False ruby: purple.
+        // False ruby indicator: purple (temporary state indicator).
         renderer.drawRectangle(
             -0.2f, 0.2f, 0.3f, 0.3f,
             0.6f, 0.1f, 0.8f);
