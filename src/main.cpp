@@ -173,8 +173,10 @@ else
 
     std::cout << "=== Reflections of the Tomb ===\n";
     std::cout << "1 / 2 - Select mirror\n";
-    std::cout << "Q / E - Rotate selected mirror\n";
-    std::cout << "R - Reset puzzle and mirrors\n";
+   std::cout << "WASD - Move Ranger\n";
+std::cout << "Q / T - Rotate selected mirror\n";
+std::cout << "E - Check mirror interaction\n";
+std::cout << "R - Reset puzzle and Ranger\n";
     std::cout << "ESC - Exit\n";
 
     bool previousR = false;
