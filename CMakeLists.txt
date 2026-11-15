@@ -79,3 +79,75 @@ target_link_libraries(
         glad_gl_core_33
         glm::glm
 )
+
+# --------------------------------------------------
+# Mirror transformation tests
+# --------------------------------------------------
+
+enable_testing()
+
+add_executable(
+    mirror_test
+    tests/mirror_test.cpp
+    src/mirror/Mirror.cpp
+    src/mirror/MirrorSystem.cpp
+)
+
+target_include_directories(
+    mirror_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    mirror_test
+    PRIVATE
+        glm::glm
+)
+
+add_test(
+    NAME mirror_transformations
+    COMMAND mirror_test
+)
+
+# --------------------------------------------------
+# Standalone Mirror Demo
+# --------------------------------------------------
+
+add_executable(
+    mirror_demo
+    demos/mirror_demo.cpp
+    src/mirror/Mirror.cpp
+)
+
+target_include_directories(
+    mirror_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    mirror_demo
+    PRIVATE
+        glm::glm
+)
+
+add_executable(
+    mirror_visual_demo
+    demos/mirror_visual_demo.cpp
+    src/mirror/Mirror.cpp
+)
+
+target_include_directories(
+    mirror_visual_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    mirror_visual_demo
+    PRIVATE
+        glfw
+        glad_gl_core_33
+        glm::glm
+)
