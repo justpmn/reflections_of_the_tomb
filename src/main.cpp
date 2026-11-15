@@ -108,7 +108,7 @@ int main()
 
     mirrorTransform = glm::scale(
         mirrorTransform,
-        glm::vec3(0.5f, 0.5f, 0.5f)
+        glm::vec3(0.5f)
     );
 
     // ==========================================
@@ -141,26 +141,26 @@ int main()
     );
 
     if (wallsLoaded)
-        std::cout << "Temple wall model loaded successfully!\n";
+        std::cout << "Temple walls loaded successfully!\n";
     else
-        std::cerr << "Failed to load temple wall model!\n";
+        std::cerr << "Failed to load temple walls!\n";
 
     // ==========================================
-    // LOAD TEMPLE PILLARS
+    // LOAD DECORATED TEMPLE PILLARS
     // ==========================================
 
-    Model pillarModel;
+    Model decoratedPillarModel;
 
-    bool pillarsLoaded = pillarModel.load(
+    bool decoratedPillarsLoaded = decoratedPillarModel.load(
         "assets/vendor/kaykit_dungeon/"
         "KayKit_Dungeon_Pack_1.1_FREE/"
-        "Assets/gltf/pillar.gltf"
+        "Assets/gltf/pillar_decorated.gltf"
     );
 
-    if (pillarsLoaded)
-        std::cout << "Temple pillars loaded successfully!\n";
+    if (decoratedPillarsLoaded)
+        std::cout << "Decorated pillars loaded successfully!\n";
     else
-        std::cerr << "Failed to load temple pillars!\n";
+        std::cerr << "Failed to load decorated pillars!\n";
 
     // ==========================================
     // LOAD 3D TEMPLE DOOR
@@ -190,7 +190,7 @@ int main()
 
     doorTransform = glm::scale(
         doorTransform,
-        glm::vec3(1.2f, 1.2f, 1.2f)
+        glm::vec3(1.2f)
     );
 
     // ==========================================
@@ -350,7 +350,7 @@ int main()
                 );
             }
 
-            // Front wall. Leave centre open.
+            // Front wall with central entrance.
             for (int i : {-1, 1})
             {
                 glm::mat4 frontWall(1.0f);
@@ -369,20 +369,23 @@ int main()
         }
 
         // ======================================
-        // RENDER FOUR TEMPLE PILLARS
+        // RENDER FOUR DECORATED TEMPLE PILLARS
         // ======================================
 
-        if (pillarsLoaded)
+        if (decoratedPillarsLoaded)
         {
-            const glm::vec3 pillarPositions[] =
+            const glm::vec3 decoratedPositions[] =
             {
-                glm::vec3(-5.0f, -0.5f,  5.0f),
-                glm::vec3( 5.0f, -0.5f,  5.0f),
-                glm::vec3(-5.0f, -0.5f, -5.0f),
-                glm::vec3( 5.0f, -0.5f, -5.0f)
+                // Front pair.
+                glm::vec3(-4.2f, -0.5f,  3.0f),
+                glm::vec3( 4.2f, -0.5f,  3.0f),
+
+                // Back pair.
+                glm::vec3(-4.2f, -0.5f, -4.0f),
+                glm::vec3( 4.2f, -0.5f, -4.0f)
             };
 
-            for (const glm::vec3& position : pillarPositions)
+            for (const glm::vec3& position : decoratedPositions)
             {
                 glm::mat4 pillarTransform(1.0f);
 
@@ -392,7 +395,7 @@ int main()
                 );
 
                 renderer.drawModel(
-                    pillarModel,
+                    decoratedPillarModel,
                     pillarTransform,
                     glm::vec3(1.0f)
                 );
@@ -480,7 +483,7 @@ int main()
 
     floorModel.cleanup();
     wallModel.cleanup();
-    pillarModel.cleanup();
+    decoratedPillarModel.cleanup();
     mirrorModel.cleanup();
     doorModel.cleanup();
 
