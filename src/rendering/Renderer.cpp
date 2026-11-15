@@ -134,7 +134,6 @@ namespace
     }
 
     // Create unit beam geometry.
-    // Local dimensions: 1 x 1 x 1.
     VertexList createBeam()
     {
         VertexList vertices;
@@ -170,14 +169,12 @@ namespace
             GL_STATIC_DRAW
         );
 
-        // Position attribute.
         glVertexAttribPointer(
             0, 3, GL_FLOAT, GL_FALSE,
             8 * sizeof(float), nullptr
         );
         glEnableVertexAttribArray(0);
 
-        // Normal attribute.
         glVertexAttribPointer(
             1, 3, GL_FLOAT, GL_FALSE,
             8 * sizeof(float),
@@ -185,7 +182,6 @@ namespace
         );
         glEnableVertexAttribArray(1);
 
-        // Texture coordinate attribute.
         glVertexAttribPointer(
             2, 2, GL_FLOAT, GL_FALSE,
             8 * sizeof(float),
@@ -222,7 +218,7 @@ namespace
             glUniform3f(lightDirectionLocation, -0.5f, 1.0f, 0.5f);
 
         if (viewPositionLocation != -1)
-            glUniform3f(viewPositionLocation, 0.0f, 7.0f, 12.0f);
+            glUniform3f(viewPositionLocation, 0.0f, 6.0f, 10.0f);
 
         if (ambientLocation != -1)
             glUniform1f(ambientLocation, 0.35f);
@@ -305,7 +301,6 @@ bool Renderer::initialize()
     if (initialized)
         return true;
 
-    // Load 2D shaders.
     if (!shader.loadFromFiles(
         "shaders/basic.vert",
         "shaders/basic.frag"))
@@ -314,7 +309,6 @@ bool Renderer::initialize()
         return false;
     }
 
-    // Load 3D model shaders.
     if (!modelShader.loadFromFiles(
         "shaders/model.vert",
         "shaders/model.frag"))
@@ -324,7 +318,6 @@ bool Renderer::initialize()
         return false;
     }
 
-    // Load dedicated beam shaders.
     if (!beamShader.loadFromFiles(
         "shaders/beam.vert",
         "shaders/beam.frag"))
@@ -398,15 +391,15 @@ bool Renderer::initialize()
         return false;
     }
 
-    // Configure camera.
+    // Configure elevated 3D camera.
     viewMatrix = glm::lookAt(
-        glm::vec3(0.0f, 7.0f, 12.0f),
+        glm::vec3(0.0f, 6.0f, 10.0f),
         glm::vec3(0.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
 
     projectionMatrix = glm::perspective(
-        glm::radians(45.0f),
+        glm::radians(40.0f),
         1280.0f / 720.0f,
         0.1f,
         100.0f
@@ -670,7 +663,6 @@ void Renderer::drawBeam(
         glm::vec3(thickness, beamLength, thickness)
     );
 
-    // Use the dedicated emissive beam shader.
     beamShader.use();
 
     GLint modelLocation =
