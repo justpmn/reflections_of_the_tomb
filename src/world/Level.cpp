@@ -163,7 +163,7 @@ LoadResult loadLevelFromString(const std::string& text) {
                 case 'M': L.mirrors.push_back({cell}); break;
                 case 'R': L.rubies.push_back({cell}); break;
                 case 'D': L.doors.push_back({cell, {}}); break;
-                case 'T': L.traps.push_back({cell, -1}); break;
+                case 'T': L.traps.push_back({cell}); break;
                 default:
                     res.errors.push_back("unknown grid char '" + std::string(1, ch) + "' at (" +
                                          std::to_string(c) + "," + std::to_string(r) + ")");
@@ -218,11 +218,16 @@ LoadResult loadLevelFromString(const std::string& text) {
             if (key != "disabled_by") { err("expected: traps disabled_by <ruby>"); continue; }
             for (auto& t : L.traps) t.disabledByRuby = r;
         } else if (kind == "trap") {
-            int i; std::string key; int r;
-            ss >> i >> key >> r;
+            int i=-1; std::string key; ss >> i >> key;
             if (badIndex("trap", i, L.traps.size())) continue;
-            if (key != "disabled_by") { err("expected: trap <i> disabled_by <ruby>"); continue; }
-            L.traps[i].disabledByRuby = r;
+            auto& t=L.traps[i];
+            if(key=="disabled_by") { if(!(ss>>t.disabledByRuby)) err("missing ruby index"); }
+            else if(key=="timed") {
+                t.timed=true;
+                if(!(ss>>t.safeSeconds>>t.warningSeconds>>t.extendedSeconds>>t.phaseOffset)) err("expected trap <i> timed <safe> <warning> <extended> <offset>");
+                std::string option;
+                if(ss>>option) {if(option!="disabled_by"||!(ss>>t.disabledByRuby))err("expected disabled_by <ruby>");}
+            } else err("expected disabled_by or timed trap properties");
         } else {
             err("unknown line '" + line + "'");
         }
@@ -276,7 +281,10 @@ std::vector<std::string> validateLevel(const Level& L) {
                 e.push_back("door " + std::to_string(i) + " needs missing ruby " + std::to_string(r));
     }
     for (size_t i = 0; i < L.traps.size(); ++i) {
-        int r = L.traps[i].disabledByRuby;
+        const auto& t=L.traps[i];
+        if(t.timed&&(!std::isfinite(t.safeSeconds)||!std::isfinite(t.warningSeconds)||!std::isfinite(t.extendedSeconds)||!std::isfinite(t.phaseOffset)||t.safeSeconds<1.5f||t.warningSeconds<.75f||t.extendedSeconds<.8f||t.phaseOffset<0))
+            e.push_back("invalid timed trap durations/phase");
+        int r = t.disabledByRuby;
         if (r < -1 || r >= (int)L.rubies.size())
             e.push_back("trap " + std::to_string(i) + " disabled_by missing ruby " + std::to_string(r));
     }

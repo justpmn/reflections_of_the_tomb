@@ -90,7 +90,7 @@ void proveContinuousNecessity(const GameSession& g,int missing) {
 int main() {
     try {
         GameSession g(LEVELS_DIR);check(g.restart(),"load campaign");
-        for(int level=0;level<3;++level) {
+        for(int level=0;level<5;++level) {
             check(g.levels.loadIndex(level)&&g.reset(),"load chamber");const auto l=g.levels.current();
             check(!g.solved(),"initial puzzle is unsolved");
             std::vector<bool> used(g.mirrors.size(),false),lit(g.rubies.size(),false);

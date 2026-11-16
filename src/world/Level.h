@@ -51,7 +51,9 @@ struct DoorSpawn {
 
 struct TrapSpawn {
     glm::ivec2 cell{0};
-    int disabledByRuby = -1;        // -1 = always active
+    bool timed = false;
+    float safeSeconds=5, warningSeconds=1, extendedSeconds=2, phaseOffset=0;
+    int disabledByRuby = -1;        // -1 = no ruby disable link
 };
 
 struct Level {

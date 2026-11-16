@@ -13,8 +13,11 @@ def convert(ppm,png):
  rows=b''.join(b'\0'+data[y*w*3:(y+1)*w*3] for y in range(h))
  png.write_bytes(b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(rows,6))+chunk(b'IEND',b''))
 cases=[('menu',['--screen','start'])]
-for level in range(1,4):
+for level in range(1,6):
  cases += [(f'level{level}',['--level',str(level)]),(f'level{level}-open',['--level',str(level),'--solved'])]
+for level in [4,5]:
+ for state in ['safe','warning','extended']:
+  cases.append((f'level{level}-spikes-{state}',['--level',str(level),'--view',f'spikes-{state}']))
 cases += [('ruby-floating',['--view','ruby']),('ruby-sealed',['--view','ruby','--solved']),('door-closed',['--view','door']),('door-open',['--view','door','--solved'])]
 cases += [(screen,['--screen',screen]) for screen in ['pause','controls','victory']]
 for name,args in cases:
@@ -25,11 +28,11 @@ for name,args in cases:
  convert(ppm,output/f'{name}.png')
  print('Captured',name,flush=True)
 
-# Replay real native Windows inputs and retain actual player-controlled Level 3 states.
+# Replay real native Windows inputs and retain actual player-controlled states from Levels 3-5.
 if __import__('os').name=='nt':
  result=subprocess.run([str(exe),'--control-test'],cwd=root,capture_output=True,text=True,timeout=120)
  (root/'build-desktop'/'review-native-controls.log').write_text(result.stdout+result.stderr)
  if result.returncode:raise RuntimeError(f'native controls failed: {result.returncode}\n{result.stdout}\n{result.stderr}')
- for name in ['control-level3-initial','control-level3-ruby1','control-level3-ruby2','control-level3-open','control-victory']:
+ for name in ['control-level3-initial','control-level3-ruby1','control-level3-ruby2','control-level3-open','control-level4-initial','control-level4-ruby1','control-level4-open','control-level5-initial','control-level5-ruby1','control-level5-ruby2','control-level5-ruby3','control-level5-open','control-victory']:
   convert(root/'build-desktop/control-captures'/f'{name}.ppm',output/f'native-{name[8:]}.png')
   print('Captured native',name,flush=True)

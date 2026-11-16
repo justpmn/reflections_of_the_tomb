@@ -5,7 +5,7 @@
 #include <cmath>
 
 GameSession::GameSession(const std::string& dir)
-    : levels({dir + "/level01.txt", dir + "/level02.txt", dir + "/level03.txt"}) {}
+    : levels({dir + "/level01.txt", dir + "/level02.txt", dir + "/level03.txt", dir + "/level04.txt", dir + "/level05.txt"}) {}
 
 bool GameSession::restart() {
     victory = false; deaths = 0;
@@ -20,6 +20,10 @@ bool GameSession::initializeLevel() {
     mirrors.clear(); rubies.clear(); doors.assign(l.doors.size(), Door{});
     traps.assign(l.traps.size(), Trap{}); walls.clear(); obstacles.clear(); beams.clear();
     doorLift = 0;
+    for(size_t i=0;i<traps.size();++i) {
+        const auto& t=l.traps[i];
+        if(t.timed)traps[i].configureTimed(t.safeSeconds,t.warningSeconds,t.extendedSeconds,t.phaseOffset);
+    }
 
     for (const auto& m : l.mirrors)
         mirrors.emplace_back(l.cellCenterXZ(m.cell), metrics::mirrorLength, m.angleDeg, -80.f, 80.f);
@@ -111,12 +115,13 @@ void GameSession::update(float x,float z,float dt) {
     for(auto& ruby:rubies) ruby.update(dt);
     const auto p=player.position();
     const auto cell=l.worldToCell({p.x,0,p.z});
-    const int t=l.trapAt(cell);
     bool onSpikes=false;
-    if(t>=0&&traps[t].isActive()) {
+    // Check every footprint, including overlaps from neighbouring grid cells.
+    for(size_t t=0;t<traps.size();++t) if(traps[t].isActive()) {
         const auto centre=l.cellCenterXZ(l.traps[t].cell);
-        const float reach=.55f+player.radius(); // Authored spike mesh: 2.2 units at half scale.
-        onSpikes=std::abs(p.x-centre.x)<reach&&std::abs(p.z-centre.y)<reach;
+        const float dx=std::max(0.f,std::abs(p.x-centre.x)-.55f);
+        const float dz=std::max(0.f,std::abs(p.z-centre.y)-.55f);
+        onSpikes |= dx*dx+dz*dz<player.radius()*player.radius();
     }
     if (l.isPit(cell) || onSpikes) {
         ++deaths;

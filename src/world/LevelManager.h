@@ -16,7 +16,7 @@ public:
     bool loadIndex(int i);                 // false + errors() on failure
     bool loadFirst() { return loadIndex(0); }
     bool next();                           // false when there are no more levels
-    bool reload() { return loadIndex(index_); }   // restart after a trap
+    bool reload() { return loadIndex(index_); }   // reset current chamber
 
     bool hasLevel() const { return loaded_; }
     const Level& current() const { return current_; }

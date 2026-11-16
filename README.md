@@ -1,6 +1,6 @@
 # Reflections of the Tomb
 
-The `integration` branch now includes a three-level playable 3D campaign, menus,
+The `integration` branch now includes a five-level playable 3D campaign, menus,
 music/effects and Ranger idle/walk animation. Run `Play.cmd` after building, or use
 the packaged `build-desktop/presentation/Play.cmd`.
 
@@ -152,7 +152,7 @@ reflectionsofthetomb/
 ## Progress and Limitations
 
 The integration campaign includes continuous multi-mirror tracing, absorbing ruby
-targets, three authored 3D chambers, player collision and nearby mirror controls,
+targets, five authored 3D chambers, player collision and nearby mirror controls,
 doors/traps, level transitions and victory. The original standalone graphics
 demonstrations and tests are preserved. See `docs/INTEGRATION_STATUS.md` for current
 verification and remaining presentation checks.

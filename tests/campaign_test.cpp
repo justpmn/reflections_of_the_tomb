@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <queue>
 #include <algorithm>
+#include <cstdlib>
 
 void require(bool condition,const char* message) { if(!condition) throw std::runtime_error(message); }
 
@@ -22,7 +23,9 @@ void walkTo(GameSession& g, glm::ivec2 goal, bool expectExit=false) {
             auto n=c+d;
             if(!l.inBounds(n)||!l.isWalkable(n)||parent[index(n)]>=0) continue;
             const int trap=l.trapAt(n);
-            if(trap>=0 && g.traps[trap].isActive()) continue;
+                const int previousTrap=l.trapAt(c);
+                if(trap>=0&&previousTrap>=0&&g.traps[trap].isTimed()&&g.traps[previousTrap].isTimed())continue;
+            if(trap>=0 && !g.traps[trap].isTimed() && g.traps[trap].isActive()) continue;
             parent[index(n)]=index(c);todo.push(n);
         }
     }
@@ -34,23 +37,28 @@ void walkTo(GameSession& g, glm::ivec2 goal, bool expectExit=false) {
     for(auto cell:route) {
         const auto target=l.cellCenterXZ(cell);
         bool arrived=false;
-        for(int step=0;step<400;++step) {
+        for(int step=0;step<1200;++step) {
             const auto pos=g.player.position(); auto delta=target-glm::vec2(pos.x,pos.z);
             if(glm::length(delta)<.07f) {arrived=true;break;}
+            const int trap=l.trapAt(cell);
+            const auto current=l.worldToCell({pos.x,0,pos.z});
+            if(trap>=0&&g.traps[trap].isTimed()&&current!=cell&&!g.traps[trap].safeToCross(1.15)) {g.update(0,0,.016f);continue;}
             delta=glm::normalize(delta);
             g.update(delta.x,delta.y,.016f);
             if(g.victory||g.levels.index()!=level) return;
         }
+        if(!arrived) {const auto pos=g.player.position();std::cerr<<"route stalled level "<<level+1<<" goal "<<cell.x<<","<<cell.y<<" position "<<pos.x<<","<<pos.z<<" deaths "<<g.deaths<<'\n';}
         require(arrived,"Player collision unexpectedly blocks route to exit");
     }
     require(!expectExit,"Entering the unlocked exit must advance campaign");
 }
 
-int main() {
+int main(int argc,char** argv) {
+    const float phaseOffset=argc>1?std::strtof(argv[1],nullptr):0;
     try {
         GameSession g(LEVELS_DIR); require(g.restart(),"Load campaign");
         require(!g.rotate(10),"Remote mirror interaction must be rejected");
-        for(int level=0;level<3;++level) {
+        for(int level=0;level<5;++level) {
             require(g.levels.index()==level,"Campaign progression order");
             require(!g.solved(),"Level must start unsolved");
             require(!g.advance(),"Locked door must reject progression");
@@ -62,10 +70,10 @@ int main() {
             }
             require(g.solved(),"Actual BeamTracer solution must unlock every required door");
             for(const auto& ruby:g.rubies) require(ruby.isActivated(),"Every ruby must be reached by physical beams");
-            for(const auto& trap:g.traps) require(!trap.isActive(),"Linked traps deactivate");
+            for(const auto& trap:g.traps) require(trap.isTimed()||!trap.isActive(),"Linked traps deactivate");
             for(int frame=0;frame<25;++frame) g.update(0,0,.05f);
             require(g.doorLift==1.f,"Unlocked door animation reaches its fully open pose");
-            for(const auto& trap:g.traps) require(trap.extension()==0.f,"Deactivated spikes fully retract");
+            for(const auto& trap:g.traps) require(trap.isTimed()||trap.extension()==0.f,"Deactivated spikes fully retract");
             for(const auto& ruby:g.rubies) require(ruby.sealingProgress()==1.f,"Activated ruby reaches sealing pose");
             // Solutions must include the intended number of reflections, not a direct shortcut.
             require(g.beams.size()>=l.mirrors.size()+l.lights.size(),"Real reflected path segment count");
@@ -73,9 +81,10 @@ int main() {
             require(g.reset(),"Reset current chamber");
             require(!g.solved(),"Reset closes doors and clears ruby activation");
             require(g.doorLift==0.f,"Reset restores closed door pose");
-            for(const auto& trap:g.traps) require(trap.extension()==1.f,"Reset restores active spike pose");
+            for(const auto& trap:g.traps) require(trap.isTimed()||trap.extension()==1.f,"Reset restores active spike pose");
             for(const auto& ruby:g.rubies) require(ruby.sealingProgress()==0.f,"Reset restores floating ruby pose");
             for(size_t i=0;i<g.mirrors.size();++i) require(g.mirrors[i].getAngle()==l.mirrors[i].angleDeg,"Reset mirror angle");
+            for(auto& trap:g.traps)if(trap.isTimed())trap.update(phaseOffset);
             // Solve again using only walking and the proximity-gated rotate API.
             for(size_t i=0;i<g.mirrors.size();++i) {
                 const auto cell=l.mirrors[i].cell;
@@ -101,7 +110,8 @@ int main() {
             walkTo(g,l.doors[0].cell,true);
             std::cout<<"PASS real beams, reset, collision route and exit: "<<l.name<<'\n';
         }
-        require(g.victory,"Final exit reaches victory");
+        require(g.victory&&g.levels.index()==4,"Fifth exit reaches victory");
+        require(g.deaths==0,"Five-level safe routes complete without hazard deaths");
         require(g.restart()&&!g.victory&&g.levels.index()==0&&!g.solved(),"Restart clears completed campaign");
         require(g.levels.loadIndex(2)&&g.reset(),"Load hazard chamber");
         const auto l=g.levels.current();

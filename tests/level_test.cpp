@@ -139,13 +139,15 @@ void testLevelFile(const std::string& path, int expectMirrors, int expectRubies)
 
 void testManager(const std::string& dir)
 {
-    LevelManager mgr({dir + "/level01.txt", dir + "/level02.txt", dir + "/level03.txt"});
+    LevelManager mgr({dir + "/level01.txt", dir + "/level02.txt", dir + "/level03.txt", dir + "/level04.txt", dir + "/level05.txt"});
     check(mgr.loadFirst(), "LevelManager loads first level");
     check(mgr.current().name == "The Entrance Hall", "First level name");
     check(mgr.next() && mgr.next(), "next() twice");
-    check(mgr.isLastLevel() && mgr.index() == 2, "On last level");
+    check(!mgr.isLastLevel() && mgr.index() == 2, "Third chamber is no longer the final chamber");
+    check(mgr.next() && mgr.next(), "Progress through fourth and fifth levels");
+    check(mgr.isLastLevel() && mgr.index() == 4, "On fifth and last level");
     check(!mgr.next(), "next() past the end fails");
-    check(mgr.reload() && mgr.index() == 2, "reload() keeps the level");
+    check(mgr.reload() && mgr.index() == 4, "reload() keeps the level");
 }
 
 int main(int argc, char** argv)
@@ -166,6 +168,8 @@ int main(int argc, char** argv)
         testLevelFile(dir + "/level01.txt", 1, 1);
         testLevelFile(dir + "/level02.txt", 2, 1);
         testLevelFile(dir + "/level03.txt", 4, 2);
+        testLevelFile(dir + "/level04.txt", 4, 2);
+        testLevelFile(dir + "/level05.txt", 6, 3);
         testManager(dir);
     }
     catch (const std::exception& e)

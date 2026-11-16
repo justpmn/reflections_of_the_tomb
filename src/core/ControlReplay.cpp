@@ -20,6 +20,9 @@ struct ControlReplay::State {
     int tick=0,level=-1,cursor=0,boot=0,fineFrames=0;
     bool done=false,walkingExit=false;
     bool resetRequested=false,resetExercised=false;
+    int timedPauseTick=0;
+    bool timedPauseDone=false,timedPauseStarted=false;
+    std::vector<double> pausedPhases;
     std::set<int> held;
     std::vector<int> order;
     std::vector<glm::ivec2> route;
@@ -57,7 +60,9 @@ struct ControlReplay::State {
             for(auto direction:directions) {
                 const auto n=c+direction;
                 if(!l.inBounds(n)||!l.isWalkable(n)||parent[index(n)]>=0)continue;
-                const int trap=l.trapAt(n);if(trap>=0&&game.traps[trap].isActive())continue;
+                const int trap=l.trapAt(n);
+                const int previousTrap=l.trapAt(c);
+                if(trap>=0&&previousTrap>=0&&game.traps[trap].isTimed()&&game.traps[previousTrap].isTimed())continue;if(trap>=0&&!game.traps[trap].isTimed()&&game.traps[trap].isActive())continue;
                 parent[index(n)]=index(c);queue.push(n);
             }
         }
@@ -72,6 +77,9 @@ struct ControlReplay::State {
         while(waypoint<route.size()) {
             const auto delta=l.cellCenterXZ(route[waypoint])-glm::vec2(p.x,p.z);
             if(glm::length(delta)<.07f){++waypoint;continue;}
+            const int trap=l.trapAt(route[waypoint]);
+            const auto cell=l.worldToCell({p.x,0,p.z});
+            if(trap>=0&&game.traps[trap].isTimed()&&cell!=route[waypoint]&&!game.traps[trap].safeToCross(1.15))return false;
             if(std::abs(delta.x)>std::abs(delta.y))wanted.insert(delta.x>0?GLFW_KEY_D:GLFW_KEY_A);
             else wanted.insert(delta.y>0?GLFW_KEY_S:GLFW_KEY_W);
             return false;
@@ -82,7 +90,7 @@ struct ControlReplay::State {
 ControlReplay::ControlReplay():state(std::make_unique<State>()){}
 ControlReplay::~ControlReplay()=default;
 void ControlReplay::beforePoll(GLFWwindow* window,const GameSession& game,GameScreen screen) {
-    auto& s=*state;State::require(++s.tick<40000,"native control replay exceeded frame limit");
+    auto& s=*state;State::require(++s.tick<100000,"native control replay exceeded frame limit");
     std::set<int> wanted;
     if(s.boot<8) {
         if(s.boot==0)wanted.insert(GLFW_KEY_ENTER);
@@ -92,12 +100,18 @@ void ControlReplay::beforePoll(GLFWwindow* window,const GameSession& game,GameSc
         s.keys(window,wanted);return;
     }
     if(game.victory){s.keys(window,{});return;}
+    if(game.levels.index()==3&&!s.timedPauseDone) {
+        if(s.timedPauseTick==0){s.timedPauseStarted=true;s.pausedPhases.clear();for(const auto& t:game.traps)s.pausedPhases.push_back(t.cyclePosition());}
+        if(s.timedPauseTick==0||s.timedPauseTick==12)wanted.insert(GLFW_KEY_ESCAPE);
+        s.keys(window,wanted);return;
+    }
     if(s.resetRequested&&!s.resetExercised){s.keys(window,{GLFW_KEY_R});return;}
     State::require(screen==GameScreen::Play,"unexpected screen during native WASD/QE replay");
     if(s.level!=game.levels.index()) {
         s.level=game.levels.index();s.cursor=0;s.walkingExit=false;s.route.clear();s.waypoint=0;
         s.order.clear();for(size_t i=0;i<game.mirrors.size();++i)s.order.push_back(int(i));
         if(game.mirrors.size()==4)s.order={0,2,1,3};
+        if(game.mirrors.size()==6)s.order={0,3,1,4,2,5};
         s.sealed.assign(game.rubies.size(),false);s.capture="control-level"+std::to_string(s.level+1)+"-initial";
         std::cout<<"NATIVE ENTER LEVEL "<<s.level+1<<'\n';
     }
@@ -141,6 +155,13 @@ void ControlReplay::afterInput(GLFWwindow* window,const GameSession& game,GameSc
         if(s.boot==6)for(const auto& ruby:game.rubies)State::require(!ruby.isActivated(),"native R did not reset chamber");
         ++s.boot;return;
     }
+    if(game.levels.index()==3&&s.timedPauseStarted&&!s.timedPauseDone) {
+        if(s.timedPauseTick<12) {
+            State::require(screen==GameScreen::Pause,"timed chamber did not pause");
+            for(size_t i=0;i<game.traps.size();++i)State::require(game.traps[i].cyclePosition()==s.pausedPhases[i],"pause advanced a timed trap");
+        }else {State::require(screen==GameScreen::Play,"timed chamber did not resume");s.timedPauseDone=true;std::cout<<"NATIVE TIMED TRAP PAUSE FREEZE VERIFIED\n";}
+        ++s.timedPauseTick;return;
+    }
     if(s.resetRequested&&!s.resetExercised) {
         State::require(!game.solved(),"native R failed to close the door after activation");
         for(const auto& ruby:game.rubies)State::require(!ruby.isActivated()&&ruby.sealingProgress()==0,"native R failed to clear a sealed ruby");
@@ -156,6 +177,7 @@ void ControlReplay::afterInput(GLFWwindow* window,const GameSession& game,GameSc
     }
     if(game.victory) {
         State::require(screen==GameScreen::Victory,"native campaign exit did not reach victory screen");
+        State::require(game.levels.index()==4&&game.deaths==0,"five-level native campaign must finish without unavoidable hazard deaths");
         State::require(s.fineFrames>0,"native Shift precision input was not exercised");
         State::require(s.resetExercised,"native reset after ruby activation was not exercised");
         std::cout<<"NATIVE SHIFT PRECISION FRAMES "<<s.fineFrames<<'\n';

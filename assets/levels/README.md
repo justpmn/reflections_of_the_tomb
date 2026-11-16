@@ -1,4 +1,4 @@
-# Levels & Temple Environment — Zahra Isaiho
+# Levels & Temple Environment â€” Zahra Isaiho
 
 ## What's in here
 | File | Purpose |
@@ -6,7 +6,7 @@
 | `src/world/Level.h/.cpp` | Level data, text-file loader, validation, solvability check |
 | `src/world/TempleMesh.h/.cpp` | Builds floor / wall / ceiling / pillar / pit geometry + collision boxes |
 | `src/world/LevelManager.h/.cpp` | Loads levels in order, `next()`, `reload()` |
-| `assets/levels/level01-03.txt` | 3 puzzle levels, increasing difficulty |
+| `assets/levels/level01-05.txt` | 5 puzzle levels, increasing difficulty |
 | `tests/level_test.cpp` | Automated tests (ctest `levels`), incl. a check that the angle convention matches `Mirror` |
 | `demos/level_preview.cpp` | Prints a level from above with the solution beam (ctest `level_preview_level0N`) |
 
@@ -46,16 +46,16 @@ traps disabled_by 0                  // all traps; or: trap 2 disabled_by 1
 | `P` | pillar (blocks player + beam) | `D` | exit door |
 | `S` | player spawn (exactly 1) | `T` | spike trap |
 
-**Numbering:** entities of each type are numbered in reading order (left→right, top→bottom), starting at 0.
+**Numbering:** entities of each type are numbered in reading order (leftâ†’right, topâ†’bottom), starting at 0.
 
-**Rules checked by the loader:** one spawn, ≥1 light/ruby/door, border is only walls/doors, every row the same width, all ruby links valid, mirror angles in [-90,90).
+**Rules checked by the loader:** one spawn, â‰¥1 light/ruby/door, border is only walls/doors, every row the same width, all ruby links valid, mirror angles in [-90,90).
 
 ## Shared conventions (tell the team)
-- Cell `(col,row)` → world centre `((col+0.5)*cellSize, y, (row+0.5)*cellSize)`. Floor is `y = 0`.
-- +X = East, +Z = South, North = −Z.
+- Cell `(col,row)` â†’ world centre `((col+0.5)*cellSize, y, (row+0.5)*cellSize)`. Floor is `y = 0`.
+- +X = East, +Z = South, North = âˆ’Z.
 - 2D gameplay code (`Mirror`, `BeamTracer`) uses `glm::vec2(x, z)`; use `L.cellCenterXZ(cell)`.
 - Mirror angle = the same convention as `mirror/Mirror.h`: the surface runs along `(cos a, sin a)` in (x, z).
-  Seen from above with north up: **45° = `\`**, **-45° = `/`**. Angles stay inside Mirror's default ±80° limits.
+  Seen from above with north up: **45Â° = `\`**, **-45Â° = `/`**. Angles stay inside Mirror's default Â±80Â° limits.
   `mirrorNormal(a) = (-sin a, 0, cos a)` equals `Mirror::getNormal()` and works with `BeamSystem::reflectDirection`.
 
 ## How teammates use it
@@ -69,13 +69,13 @@ const world::Level& L = levels.current();
 ```
 | Teammate | What they take |
 |---|---|
-| **Joe** (rendering) | `buildTempleMesh(L)` → 5 meshes. Vertex = pos(vec3) normal(vec3) uv(vec2), 32 bytes, CCW. Use `glBufferData` + attribs 0/1/2 with stride `sizeof(world::Vertex)`. A different texture per mesh (floor/walls/ceiling/pillars/pits). |
-| **Kimberly** (player) | Spawn: `L.cellCenter(L.playerSpawn)`. Collision: `buildStaticColliders(L)` (AABBs). `L.isWalkable(cell)`, `L.isPit(cell)` → fall/respawn with `levels.reload()`. |
+| **Joe** (rendering) | `buildTempleMesh(L)` â†’ 5 meshes. Vertex = pos(vec3) normal(vec3) uv(vec2), 32 bytes, CCW. Use `glBufferData` + attribs 0/1/2 with stride `sizeof(world::Vertex)`. A different texture per mesh (floor/walls/ceiling/pillars/pits). |
+| **Kimberly** (player) | Spawn: `L.cellCenter(L.playerSpawn)`. Collision: `buildStaticColliders(L)` (AABBs). `L.isWalkable(cell)`, `L.isPit(cell)` â†’ fall/respawn with `levels.reload()`. |
 | **Joy** (mirrors) | `L.mirrors[i]`: `cell`, `angleDeg` (start), `rotatable`. Place at `cellCenter(cell, height)`. |
 | **Peter** (beams) | `L.lights[i]` (`world::LightSpawn`): `cell` + `dirToVec(dir)`. Blockers: walls & pillars (colliders), closed doors. Use `mirrorNormal()` so the angle convention matches. |
 | **Jesse** (puzzle) | `L.rubies`, `L.doors[i].needsRubies`, `L.traps[i].disabledByRuby`. Door opens when all needed rubies are lit; trap off when its ruby is lit. On exit: `levels.next()`. |
 
-## The 3 levels (presentation overhaul)
+## The 5 levels (presentation overhaul)
 1. **The Entrance Hall**: one mirror must turn light north to the ruby.
 2. **Hall of Spikes**: two mirrors turn light south, then west; a real wall baffle blocks the former diagonal shortcut.
 3. **The Inner Sanctum**: two sources, four mirrors, two ruby targets. Independent two-reflection paths are left source -> mirror 0 -> mirror 2 -> ruby 0 and right source -> mirror 1 -> mirror 3 -> ruby 1. Baffles at columns 3/11 block diagonals; a central divider at column 7 blocks cross-circuit shortcuts. The lower passage connects both player routes.
@@ -85,7 +85,18 @@ The critical-fix redesign replaces the previous three-mirror sequential sealing 
 ## Graphics concepts used (for the report)
 - **Polygon representation**: the temple is built from quads (2 triangles each) generated from the grid.
 - **Hidden-surface reduction**: wall faces are only made where a wall touches open space.
-- **Surface normals & winding**: each quad's winding is fixed using the cross product, `(p1-p0)×(p2-p0)·n > 0`.
-- **Reflection**: the solvability check uses `R = D - 2(D·N)N`.
-- **World/grid transforms**: grid↔world coordinate mapping, scaled by `cellSize`.
+- **Surface normals & winding**: each quad's winding is fixed using the cross product, `(p1-p0)Ã—(p2-p0)Â·n > 0`.
+- **Reflection**: the solvability check uses `R = D - 2(DÂ·N)N`.
+- **World/grid transforms**: gridâ†”world coordinate mapping, scaled by `cellSize`.
 - **Collision**: axis-aligned bounding boxes (AABBs) for walls and pillars.
+
+## Timed spike authoring
+
+`trap <index> timed <safe-seconds> <warning-seconds> <extended-seconds> <phase-offset> [disabled_by <ruby-index>]`
+
+Each trap owns its phase. Identical parameters/offsets form a synchronized section; different offsets produce independent groups. Safe duration must be at least 1.5 seconds, warning at least 0.75 seconds, extended at least 0.8 seconds, and all numbers finite with nonnegative offsets. Prefer the supplied 4.5-5.5 second safe windows and 1.2 second warnings. Extension/retraction each lasts 0.4 seconds within Extended. Ruby-controlled traps retain the original `disabled_by` format. Timed traps without that explicit link continue after ruby activation.
+
+4. **The Gauntlet:** 15x11, two sources, four mirrors, two rubies, two timed crossing rows and safe lower waiting zones.
+5. **The Final Trial:** 22x12, three sources, six mirrors, three rubies, three independently phased crossing rows, three pits and a final ruby-controlled exit barrier.
+
+New bays have source -> upper mirror (+45) -> lower mirror (-45) -> ruby. Stone baffles rule out diagonal shortcuts; dividers isolate optical circuits while a lower passage connects walking routes. All mirrors are physically necessary under the continuous-angle envelope proof, not rotation counters.

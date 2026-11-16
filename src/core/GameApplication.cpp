@@ -67,6 +67,15 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
         for(int i=0;i<25;++i) game.update(0,0,.05f);
         if(!game.solved()||game.doorLift<.95f) return 6;
     }
+    if(smoke&&view.rfind("spikes-",0)==0) {
+        const auto& level=game.levels.current();
+        for(size_t i=0;i<game.traps.size();++i)if(level.traps[i].timed) {
+            const auto& spec=level.traps[i];
+            game.traps[i].configureTimed(spec.safeSeconds,spec.warningSeconds,spec.extendedSeconds,0);
+            if(view=="spikes-warning")game.traps[i].update(spec.safeSeconds+.2f);
+            if(view=="spikes-extended")game.traps[i].update(spec.safeSeconds+spec.warningSeconds+.6f);
+        }
+    }
     Audio audio; audio.music();
     GameUI ui(renderer);
     if(!ui.ready()) {std::cerr<<"UI atlas/shader load failed\n";return 7;}
@@ -121,8 +130,20 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
                     audio.effect("Mirror/rotate_mirror.wav"); lastSound=now;
                 }
             }
+            std::vector<Trap::State> trapStates;
+            for(const auto& trap:game.traps)trapStates.push_back(trap.state());
             game.update(float(down(GLFW_KEY_D))-float(down(GLFW_KEY_A)),
                         float(down(GLFW_KEY_S))-float(down(GLFW_KEY_W)),dt);
+            if(level==game.levels.index()) {
+                bool warning=false,extend=false,retract=false;
+                for(size_t i=0;i<game.traps.size();++i) {
+                    const auto next=game.traps[i].state();
+                    if(next!=trapStates[i]) {warning|=next==Trap::State::Warning;extend|=next==Trap::State::Extended;retract|=next==Trap::State::Retracted;}
+                }
+                if(warning)audio.effect("Temple doors and traps/ancient_mechanism_rumble.wav");
+                if(extend)audio.effect("Temple doors and traps/spike_trap_extending.wav");
+                if(retract)audio.effect("Temple doors and traps/spike_trap_retracting.wav");
+            }
             if(!wasSolved && game.solved()) {
                 audio.effect("Ruby and Pedestal Sounds/permanent_ruby_sealing.wav");
                 audio.effect("Temple doors and traps/stone_door_opening_and_closing.ogg");
@@ -184,7 +205,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
         if(screen==Screen::Play) {
             ui.panel(-1,.80f,2,.20f);
             ui.text("REFLECTIONS OF THE TOMB",-.95f,.96f,1.4f);
-            ui.text("LEVEL "+std::to_string(game.levels.index()+1)+" / 3  -  "+l.name+"   RUBIES "+std::to_string(std::count_if(game.rubies.begin(),game.rubies.end(),[](const Ruby& r){return r.isActivated();}))+" / "+std::to_string(game.rubies.size()),-.95f,.87f,1.f);
+            ui.text("LEVEL "+std::to_string(game.levels.index()+1)+" / "+std::to_string(game.levels.count())+"  -  "+l.name+"   RUBIES "+std::to_string(std::count_if(game.rubies.begin(),game.rubies.end(),[](const Ruby& r){return r.isActivated();}))+" / "+std::to_string(game.rubies.size()),-.95f,.87f,1.f);
             ui.panel(-1,-1,2,.20f);
             if(game.solved()) ui.text("RUBIES SEALED - WALK THROUGH THE OPEN DOOR",-.95f,-.81f,1.2f,.4f,1,.6f);
             else if(game.nearbyMirror()>=0) {
@@ -192,6 +213,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
                 hint<<"MIRROR "<<selected+1<<"   "<<std::fixed<<std::setprecision(1)<<game.mirrors[selected].getAngle()<<" DEG   Q / E ROTATE   SHIFT FINE";
                 ui.text(hint.str(),-.95f,-.81f,1.15f);
             }
+            else if(game.levels.index()>=3)ui.text("SPIKE MARKS: TEAL SAFE / AMBER WARNING / RED DANGER",-.95f,-.81f,1.05f);
             else ui.text("MOVE NEAR A MIRROR TO ROTATE IT - LIGHT EVERY RUBY",-.95f,-.81f,1.1f);
             ui.text("WASD MOVE   Q / E ROTATE   R RESET   ESC PAUSE   M SOUND",-.95f,-.91f,1.f);
         } else {
@@ -230,10 +252,11 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
                 ui.text("ESC - PAUSE   M - SOUND",-.85f,-.25f,1.05f);
                 ui.text("LIGHT RUBIES. AVOID TRAPS AND PITS.",-.85f,-.40f,.96f);
                 ui.text("RUBIES STAY SEALED UNTIL RESET.",-.85f,-.50f,.96f);
-                if(button("BACK",-.69f)) screen=back;
+                ui.text("TIMED SPIKES: TEAL SAFE / AMBER WAIT",-.85f,-.59f,.85f);
+                if(button("BACK",-.73f)) screen=back;
             } else if(screen==Screen::Victory) {
                 ui.text("CAMPAIGN COMPLETE",-.85f,.30f,1.45f,.5f,1,.7f);
-                ui.text("THREE CHAMBERS SOLVED",-.85f,.13f,1.1f);
+                ui.text("FIVE CHAMBERS SOLVED",-.85f,.13f,1.1f);
                 ui.text("RESPAWNS: "+std::to_string(game.deaths),-.85f,-.04f,1.1f);
                 if(button("PLAY AGAIN",-.28f)) {game.restart();screen=Screen::Play;}
                 if(button("MAIN MENU",-.46f)) screen=Screen::Start;

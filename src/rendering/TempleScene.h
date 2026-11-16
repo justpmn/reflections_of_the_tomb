@@ -161,6 +161,11 @@ public:
                 auto mat=place(p+glm::vec3(0,-.025f+(spikes?g.traps[i].extension()*.85f:0),0),cs/4);
                 r.drawModelMesh(spike,mesh,mat,glm::vec3(1),0,spikes?0.f:-1000.f);
             }
+            if(g.traps[i].isTimed()) {
+                const auto state=g.traps[i].state();
+                const glm::vec3 color=state==Trap::State::Warning?glm::vec3(1,.55f,.08f):state==Trap::State::Extended?glm::vec3(.9f,.22f,.08f):glm::vec3(.20f,.75f,.65f);
+                for(float x:{-.68f,.68f})r.drawBeam(p+glm::vec3(x,.065f,-.7f),p+glm::vec3(x,.065f,.7f),color,.065f,.7f);
+            }
         }
         const auto p=g.player.position(),f=g.player.facing();
         r.drawModel(ranger,place({p.x,.002f,p.z},metrics::rangerScale,std::atan2(f.x,f.z)),glm::vec3(1));
