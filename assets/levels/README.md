@@ -102,16 +102,25 @@ const world::Level& L = levels.current();
 
 - All paths and measured sizes are in one table: `assetTable()` in `LevelScene.cpp`. `level_scene_test`
   re-measures every file with cgltf and fails if a file is missing or its size changed.
-- Sizes are measured **with glTF node transforms applied**. That matches Joe's `Model`
-  (`feature/joe-temple-environment`). The `Model` on main ignores node transforms, so until Joe's
-  branch is merged `mirror_complete.glb` draws as separated parts and `spike_trap.glb` lies on its side.
-  Everything else is correct on main.
+- Sizes are measured **with glTF node transforms applied**, the same way Joe's `Model` (main, PR #16)
+  loads them, so multi-part models such as `mirror_complete.glb` and `spike_trap.glb` assemble correctly.
+- Textures and lighting come from Joe's `Model`/`Renderer`. `LevelSceneRenderer::colorFor` is only
+  used for meshes without a texture.
 - Scaling: the largest X/Z extent becomes `footprint × cellSize`. Walls, doorway and pillars are
   stretched to `wallHeight`; the rest scale uniformly.
 - `levelToArea(L, centreXZ, halfSize, y)` places the level in the game world.
-  main.cpp uses centre (0,0) and half-size 4 (the demo room's ±4 area).
+  main.cpp uses centre (0,0), half-size 6.5 (the temple room's ±6.5 footprint) and floor top y = 0,
+  where the Ranger stands.
 - `LevelSceneOptions::cutawayToward`: walls whose front faces away from that direction (towards the
-  camera) are drawn at 25% height. main.cpp uses `(0, 1)` because the fixed camera looks north from +Z.
+  camera) are drawn at 25% height. In showcase mode main.cpp points it at the camera and turns it off
+  when the camera is high enough to see over the walls.
+
+### Showcase mode (main.cpp)
+`constexpr bool kShowcaseLevelOnly = true;` draws level01 instead of the hard-coded temple room,
+hides the room's puzzle props and beam, and uses an orbit camera that fits the level.
+Controls: ←/→ orbit, ↑/↓ raise/lower (15°–85°), `+`/`-` zoom, `C` reset; WASD still moves the Ranger.
+**F1** toggles between the level showcase and the temple room at runtime (Joe's fixed camera is restored).
+Set the flag to `false` to start in the temple room demo exactly as on main.
 
 ```cpp
 world::LevelManager levels({"assets/levels/level01.txt", "assets/levels/level02.txt", "assets/levels/level03.txt"});

@@ -35,7 +35,8 @@ public:
 
     void cleanup();
 
-    // Flat colour per asset (main's Model has no textures; Joe's uses it as a tint).
+    // Flat colour per asset. Joe's Model draws textured meshes with their texture,
+    // so this is only used for meshes without one.
     static glm::vec3 colorFor(AssetId id);
 
 private:

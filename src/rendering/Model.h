@@ -4,30 +4,40 @@
 #include <vector>
 #include <glad/gl.h>
 
-class Model {
+class Model
+{
 public:
     Model() = default;
     ~Model();
 
-    // Load a 3D model from a GLB or GLTF file
     bool load(const std::string& filePath);
 
-    // Draw the loaded model
-    void draw() const;
+    // Draw every mesh in the model.
+    void draw(unsigned int shaderProgram) const;
 
-    // Release OpenGL resources
+    // Draw only one mesh by its index.
+    void drawMesh(
+        unsigned int meshIndex,
+        unsigned int shaderProgram
+    ) const;
+
     void cleanup();
 
-    // Prevent accidental copying of OpenGL resources
     Model(const Model&) = delete;
     Model& operator=(const Model&) = delete;
 
+    // Number of meshes loaded.
+    unsigned int getMeshCount() const;
+
 private:
-    struct Mesh {
+    struct Mesh
+    {
         unsigned int VAO = 0;
         unsigned int VBO = 0;
         unsigned int EBO = 0;
+        unsigned int textureID = 0;
         unsigned int indexCount = 0;
+        bool hasTexture = false;
     };
 
     std::vector<Mesh> meshes;

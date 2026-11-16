@@ -5,10 +5,12 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace {
+namespace
+{
     constexpr float PI = 3.14159265358979323846f;
 
-    float toRadians(float degrees) {
+    float toRadians(float degrees)
+    {
         return degrees * PI / 180.0f;
     }
 }
@@ -24,36 +26,49 @@ Mirror::Mirror(
       halfLength(length / 2.0f),
       angleDeg(initialAngle),
       minAngleDeg(minAngle),
-      maxAngleDeg(maxAngle) {
-
-    if (length <= 0.0f || minAngle > maxAngle) {
-        throw std::invalid_argument("Invalid mirror length or angle limits");
+      maxAngleDeg(maxAngle)
+{
+    if (length <= 0.0f || minAngle > maxAngle)
+    {
+        throw std::invalid_argument(
+            "Invalid mirror length or angle limits"
+        );
     }
 
     setAngle(initialAngle);
 }
 
-void Mirror::rotateLeft(float degrees) {
+void Mirror::rotateLeft(float degrees)
+{
     setAngle(angleDeg - std::abs(degrees));
 }
 
-void Mirror::rotateRight(float degrees) {
+void Mirror::rotateRight(float degrees)
+{
     setAngle(angleDeg + std::abs(degrees));
 }
 
-void Mirror::setAngle(float degrees) {
-    angleDeg = std::clamp(degrees, minAngleDeg, maxAngleDeg);
+void Mirror::setAngle(float degrees)
+{
+    angleDeg = std::clamp(
+        degrees,
+        minAngleDeg,
+        maxAngleDeg
+    );
 }
 
-glm::vec2 Mirror::getCenter() const {
+glm::vec2 Mirror::getCenter() const
+{
     return center;
 }
 
-float Mirror::getAngle() const {
+float Mirror::getAngle() const
+{
     return angleDeg;
 }
 
-glm::vec2 Mirror::getEndpointA() const {
+glm::vec2 Mirror::getEndpointA() const
+{
     const float angle = toRadians(angleDeg);
 
     return {
@@ -62,7 +77,8 @@ glm::vec2 Mirror::getEndpointA() const {
     };
 }
 
-glm::vec2 Mirror::getEndpointB() const {
+glm::vec2 Mirror::getEndpointB() const
+{
     const float angle = toRadians(angleDeg);
 
     return {
@@ -71,7 +87,8 @@ glm::vec2 Mirror::getEndpointB() const {
     };
 }
 
-glm::vec2 Mirror::getNormal() const {
+glm::vec2 Mirror::getNormal() const
+{
     const float angle = toRadians(angleDeg);
 
     return {
