@@ -51,8 +51,8 @@ try:
   if m.get('event')=='stopped':
    thread=m['body']['threadId'];reason=m['body'].get('reason')
    stack=response(send('stackTrace',{'threadId':thread,'levels':20}))
-   print(json.dumps({'stop':m.get('body'),'stack':stack.get('body')},indent=2),flush=True)
    if reason!='entry':
+    print(json.dumps({'stop':m.get('body'),'stack':stack.get('body')},indent=2),flush=True)
     info=response(send('exceptionInfo',{'threadId':thread}));print(json.dumps(info,indent=2),flush=True)
     result=2;break
    response(send('continue',{'threadId':thread}))

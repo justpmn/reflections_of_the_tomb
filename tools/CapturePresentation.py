@@ -24,3 +24,12 @@ for name,args in cases:
  if result.returncode:raise RuntimeError(f'{name}: {result.returncode}\n{result.stdout}\n{result.stderr}')
  convert(ppm,output/f'{name}.png')
  print('Captured',name,flush=True)
+
+# Replay real native Windows inputs and retain actual player-controlled Level 3 states.
+if __import__('os').name=='nt':
+ result=subprocess.run([str(exe),'--control-test'],cwd=root,capture_output=True,text=True,timeout=120)
+ (root/'build-desktop'/'review-native-controls.log').write_text(result.stdout+result.stderr)
+ if result.returncode:raise RuntimeError(f'native controls failed: {result.returncode}\n{result.stdout}\n{result.stderr}')
+ for name in ['control-level3-initial','control-level3-ruby1','control-level3-ruby2','control-level3-open','control-victory']:
+  convert(root/'build-desktop/control-captures'/f'{name}.ppm',output/f'native-{name[8:]}.png')
+  print('Captured native',name,flush=True)

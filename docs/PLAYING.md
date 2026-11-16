@@ -23,7 +23,7 @@ Angles describe the reflective surface seen from above: `45` is a backslash; `-4
 
 1. **The Entrance Hall:** the east mirror turns the eastbound beam north toward the ruby. Rotate from +45 to -45 using Q.
 2. **Hall of Spikes:** set the north mirror to +45 using E and the south mirror to -45 using Q. The beam travels east, south, then west around the stone baffle to the ruby. Spikes retract and the south exit opens.
-3. **The Inner Sanctum:** set the north mirror to +45, the east mirror to -45, and the west mirror to +45. The three-reflection chain seals the north ruby and retracts the spikes. Return to the west mirror and rotate it to -45 to seal the south ruby. Both seals open the exit. Stone baffles block diagonal shortcuts; the central passage and side aisles keep every mirror accessible. Avoid the two pits.
+3. **The Inner Sanctum:** solve the two optical circuits independently. Set the upper-left mirror (1) to +45 and lower-left mirror (3) to -45 to seal the left ruby. Use the lower central passage to reach the other side; set upper-right mirror (2) to -45 and lower-right mirror (4) to +45 to seal the right ruby. Each ruby retracts its own spike group; both rubies are required for the final exit. Avoid the two pits. There is no angle-switching step or fourth-quadrant rotation.
 
 ## Build and tests
 
@@ -45,3 +45,9 @@ Optional desktop checks: configure `-DENABLE_RENDER_SMOKE_TESTS=ON`. These hidde
 Ranger uses the supplied KayKit `Idle_A` and `Walking_A` clips retargeted by matching joint names with CPU skinning. Incompatible/missing clips use the static character. Audio uses existing assets through miniaudio and becomes silent if an audio device is unavailable. The supplied MP4 reflection chime is not used; existing WAV/OGG effects cover interactions instead.
 
 The HUD shows the nearby mirror angle to one decimal place and the number of sealed rubies. Use Shift for precise alignment. Every required reflection is enforced by geometry; no rotation count or hidden completion gate is used. See [puzzle verification](PUZZLE_VERIFICATION.md).
+
+## Native control verification (Windows)
+
+`reflections_of_the_tomb.exe --control-test` replays targeted native key messages into its own hidden GLFW window. It starts the campaign with Enter, tests pause/resume, walks using WASD, aligns mirrors using Q/E and Shift, resets Level 3 with R after sealing a ruby, solves again and walks to victory. It never changes gameplay positions, angles or ruby states directly. Diagnostic snapshots go to `build-desktop/control-captures`.
+
+`python tools/RepeatCampaign.py --runs 100` checks fresh campaign-test process exits. `tools/DebugCampaign.py` uses the installed Android Studio LLDB adapter for symbolized checks; forensic details are in `docs/CRASH_INVESTIGATION.md`.

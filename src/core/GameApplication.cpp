@@ -1,4 +1,5 @@
 #include "GameApplication.h"
+#include "ControlReplay.h"
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include "gameplay/GameSession.h"
@@ -17,7 +18,7 @@
 #include <stdexcept>
 
 namespace {
-enum class Screen { Start, Play, Pause, Controls, Victory };
+using Screen=GameScreen;
 struct GlfwLifetime {
     GlfwLifetime() {if(!glfwInit())throw std::runtime_error("GLFW initialization failed");}
     ~GlfwLifetime() {glfwTerminate();}
@@ -45,7 +46,7 @@ void capture(int width,int height,const std::string& file) {
     std::ofstream out(file,std::ios::binary); out<<"P6\n"<<width<<' '<<height<<"\n255\n";
     for(int y=height-1;y>=0;--y) out.write(reinterpret_cast<char*>(pixels.data()+y*width*3),width*3);
 }
-int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot,Screen initialScreen,bool solvedPreview,const std::string& view,bool testThrow) {
+int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot,Screen initialScreen,bool solvedPreview,const std::string& view,bool testThrow,bool controlTest) {
     Renderer renderer;
     if(!renderer.initialize()) return 2;
     TempleScene scene;
@@ -71,6 +72,8 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
     if(!ui.ready()) {std::cerr<<"UI atlas/shader load failed\n";return 7;}
     if(smoke&&testThrow)throw std::runtime_error("lifecycle test exception after GL/audio/UI initialization");
     Screen screen=initialScreen, back=Screen::Start;
+    std::unique_ptr<ControlReplay> replay=controlTest?std::make_unique<ControlReplay>():nullptr;
+    if(replay)std::filesystem::create_directories("build-desktop/control-captures");
     std::array<bool,GLFW_KEY_LAST+1> previous{};
     bool previousMouse=false;
     double last=glfwGetTime(),lastSound=0,lastStep=0;
@@ -84,8 +87,9 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
         *zoom=std::clamp(*zoom*float(std::pow(.9,y)),.55f,1.35f);
     });
     while(!glfwWindowShouldClose(window)) {
+        if(replay)replay->beforePoll(window,game,screen);
         glfwPollEvents();
-        const double now=glfwGetTime(); const float dt=std::min(.05f,float(now-last)); last=now;
+        const double now=glfwGetTime(); const float dt=replay?.016f:std::min(.05f,float(now-last)); last=now;
         auto down=[&](int key){return glfwGetKey(window,key)==GLFW_PRESS;};
         auto pressed=[&](int key){return down(key)&&!previous[key];};
         int width,height,ww,wh; glfwGetFramebufferSize(window,&width,&height); glfwGetWindowSize(window,&ww,&wh);
@@ -102,6 +106,10 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             else if(screen==Screen::Pause) screen=Screen::Play;
             else if(screen==Screen::Controls) screen=back;
             audio.effect("Menu and interface sounds/pause_or_resume.wav");
+        }
+        if(screen==Screen::Start&&pressed(GLFW_KEY_ENTER)) {
+            game.restart();screen=Screen::Play;
+            audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
         }
         if(screen==Screen::Play) {
             if(pressed(GLFW_KEY_R)) { game.reset(); audio.effect("Player/respawn.wav"); }
@@ -125,6 +133,13 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             if(deaths!=game.deaths) audio.effect("Player/respawn.wav");
             if(level!=game.levels.index()) audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
             if(game.victory) screen=Screen::Victory;
+        }
+        if(replay) {
+            replay->afterInput(window,game,screen);
+            if(!replay->shouldRender()) {
+                for(int i=GLFW_KEY_SPACE;i<=GLFW_KEY_LAST;++i)previous[i]=down(i);
+                previousMouse=mouse;continue;
+            }
         }
         const auto& l=game.levels.current();
         glm::vec3 center(l.width*l.cellSize*.5f,-.35f,l.height*l.cellSize*.51f);
@@ -192,7 +207,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             };
             if(screen==Screen::Start) {
                 ui.text("SELECT AN OPTION",-.85f,.31f,1.f,.55f,.64f,.73f);
-                if(button("START GAME  /  ENTER",.10f)||pressed(GLFW_KEY_ENTER)) {
+                if(button("START GAME  /  ENTER",.10f)) {
                     game.restart();screen=Screen::Play;
                     audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
                 }
@@ -224,6 +239,15 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
                 if(button("MAIN MENU",-.46f)) screen=Screen::Start;
             }
         }
+        if(replay) {
+            const auto name=replay->takeCapture();
+            if(!name.empty())capture(width,height,"build-desktop/control-captures/"+name+".ppm");
+            if(replay->finished()) {
+                const auto error=glGetError();
+                std::cout<<"NATIVE CONTROL CAMPAIGN COMPLETE GL="<<error<<'\n';
+                return error==GL_NO_ERROR?0:8;
+            }
+        }
         if(smoke && ++frames>=8) {
             if(!screenshot.empty()) capture(width,height,screenshot);
             const auto error=glGetError();
@@ -231,7 +255,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             return error==GL_NO_ERROR?0:5;
         }
         glfwSwapBuffers(window);
-        for(int i=0;i<=GLFW_KEY_LAST;++i) previous[i]=down(i);
+        for(int i=GLFW_KEY_SPACE;i<=GLFW_KEY_LAST;++i) previous[i]=down(i);
         previousMouse=mouse;
     }
     return 0;
@@ -240,12 +264,13 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
 int runGame(int argc,char** argv) {
     try {
         locateAssets(argv[0]);
-        bool smoke=false,solvedPreview=false,testThrow=false;int preview=0;std::string screenshot,screenName,view;
+        bool smoke=false,solvedPreview=false,testThrow=false,controlTest=false;int preview=0;std::string screenshot,screenName,view;
         for(int i=1;i<argc;++i) {
             const std::string arg=argv[i];
             if(arg=="--smoke") smoke=true;
             else if(arg=="--solved") solvedPreview=true;
             else if(arg=="--test-throw") testThrow=true;
+            else if(arg=="--control-test")controlTest=true;
             else if(arg=="--view" && i+1<argc) view=argv[++i];
             else if(arg=="--level" && i+1<argc) preview=std::stoi(argv[++i])-1;
             else if(arg=="--capture" && i+1<argc) screenshot=argv[++i];
@@ -254,17 +279,17 @@ int runGame(int argc,char** argv) {
         GlfwLifetime glfw;
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,3);glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
         glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
-        if(smoke) glfwWindowHint(GLFW_VISIBLE,GLFW_FALSE);
+        if(smoke||controlTest) glfwWindowHint(GLFW_VISIBLE,GLFW_FALSE);
         WindowOwner window(glfwCreateWindow(1280,720,"Reflections of the Tomb",nullptr,nullptr),glfwDestroyWindow);
         if(!window)return 1;
-        glfwMakeContextCurrent(window.get());glfwSwapInterval(1);
+        glfwMakeContextCurrent(window.get());glfwSwapInterval(controlTest?0:1);
         if(!gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)))return 1;
         // All GL owners are destroyed inside play(), while the context is still alive.
-        Screen initial=smoke?Screen::Play:Screen::Start;
+        Screen initial=smoke&&!controlTest?Screen::Play:Screen::Start;
         if(screenName=="start") initial=Screen::Start;
         else if(screenName=="pause") initial=Screen::Pause;
         else if(screenName=="controls") initial=Screen::Controls;
         else if(screenName=="victory") initial=Screen::Victory;
-        return play(window.get(),smoke,preview,screenshot,initial,solvedPreview,view,testThrow);
+        return play(window.get(),smoke,preview,screenshot,initial,solvedPreview,view,testThrow,controlTest);
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 10;}
 }

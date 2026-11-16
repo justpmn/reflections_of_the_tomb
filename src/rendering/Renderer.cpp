@@ -332,6 +332,10 @@ bool Renderer::initialize()
         return false;
     }
 
+    if(!backgroundShader.loadFromFiles("shaders/background.vert","shaders/background.frag")) {
+        shutdown();return false;
+    }
+    glGenVertexArrays(1,&backgroundVAO);
     // Create 2D rectangle buffers.
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -438,6 +442,10 @@ void Renderer::beginFrame()
         GL_COLOR_BUFFER_BIT |
         GL_DEPTH_BUFFER_BIT
     );
+    glDisable(GL_DEPTH_TEST);glDepthMask(GL_FALSE);
+    backgroundShader.use();glBindVertexArray(backgroundVAO);
+    glDrawArrays(GL_TRIANGLES,0,3);glBindVertexArray(0);
+    glDepthMask(GL_TRUE);glEnable(GL_DEPTH_TEST);
 }
 
 // Draw a 2D rectangle.
@@ -821,6 +829,8 @@ void Renderer::drawBeamSegments(
 // Release OpenGL resources.
 void Renderer::shutdown()
 {
+    if(backgroundVAO){glDeleteVertexArrays(1,&backgroundVAO);backgroundVAO=0;}
+    backgroundShader.destroy();
     if (beamVBO != 0)
     {
         glDeleteBuffers(1, &beamVBO);

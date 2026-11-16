@@ -165,7 +165,7 @@ int main(int argc, char** argv)
         testBadLevelsAreRejected();
         testLevelFile(dir + "/level01.txt", 1, 1);
         testLevelFile(dir + "/level02.txt", 2, 1);
-        testLevelFile(dir + "/level03.txt", 3, 2);
+        testLevelFile(dir + "/level03.txt", 4, 2);
         testManager(dir);
     }
     catch (const std::exception& e)

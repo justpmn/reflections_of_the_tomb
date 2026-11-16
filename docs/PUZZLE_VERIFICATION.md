@@ -6,11 +6,9 @@ Runtime uses the continuous finite-segment `BeamTracer`, not a grid solver or a 
 
 - Entrance Hall: the eastbound source misses its ruby unless the east mirror turns it north.
 - Hall of Spikes: a stone baffle at column 4, rows 2-3 blocks the diagonal from the northern mirror to the western ruby. Light must turn south at the northern mirror, then west at the southern mirror.
-- Inner Sanctum: two stone baffles at column 6, rows 2-4 and 6-8 block diagonal shortcuts. Light travels from the north mirror south to the east mirror, then west to the west mirror. The west mirror first sends it north to ruby 0, then south to ruby 1. Permanent sealing is essential to this sequence.
+- Inner Sanctum: two independent optical circuits, each with two mirrors. A centre wall at column 7 (rows 1-7) separates the circuits optically; an open lower passage connects player routes. Baffles at columns 3/11, rows 2-3 prevent first-mirror-to-ruby diagonals. Actual reflection order is **0 -> 2 -> ruby 0** for the eastbound left source and **1 -> 3 -> ruby 1** for the westbound right source.
 
-Indices follow the loader's reading order. The third chamber's reflection order is **0 -> 2 -> 1**. Its solution angles are `[45,45,-45]`, followed by `[45,-45,-45]`.
-
-`alternate` in a level file is optional designer verification metadata for a sealing sequence. It is never read by gameplay interaction or completion logic. The design checker unions ruby hits over designer poses; runtime completion always comes from actual absorbing traces.
+Indices follow loader reading order. The final four-mirror solution is `[45,-45,-45,45]`, all inside the normal [-80,80] range. Both rubies can remain lit at once. No alternate angle metadata or extra rotation step is needed in the current final chamber. The optional `alternate` loader metadata remains supported for designer tools; runtime completion never uses it.
 
 ## Continuous necessity proof
 
@@ -24,6 +22,9 @@ The resulting visibility graph deliberately allows more connections than real op
 
 - Verify the authored starting pose is unsolved.
 - Trace the intended solution sequence and verify every required ruby is hit and every intended mirror appears in `reflectedMirrorIndices`.
-- Remove each mirror, enumerate every integer-degree combination of all remaining mirrors over [-80,80], and union ruby hits across all configurations. This deliberately accounts for sealing targets at different times.
-- Counts: 1 configuration for the one-mirror removal; 161 for each two-mirror removal; 25,921 for each three-mirror removal. The interval visibility proof covers the fractional angles between these samples; the sample search alone is not claimed as a continuous proof.
-- The campaign test walks actual collision-aware routes to every mirror, solves through the proximity-gated rotation API, returns to the west mirror for the second seal, and traverses all three exits.
+- Remove or absorbingly disable each mirror and enumerate integer-degree states over [-80,80]. Ruby hits are unioned across states, explicitly accounting for permanent sealing.
+- The same conservative visibility graph factors optically disconnected mirror components. Rays cannot bounce between components even at fractional angles. Searching each complete component with other components removed over-approximates possible hits. This covers their Cartesian product without brute-forcing irrelevant cross-circuit combinations.
+- Counts per removal/disable: 1 direct case in level 1; 162 cases in level 2 (161 single-mirror angles plus a direct case); 26,083 cases in level 3 (25,921 two-mirror circuit poses, 161 single-mirror poses and a direct case). Every case is traced for both sources where present and for transparent removal and opaque disabling. The all-real-angle envelope proof remains the primary necessity proof.
+- Calibration removes the level 2 baffle and finds a physical diagonal bypass; replacing the baffle blocks that exact beam. This proves the test is exercising meaningful geometry rather than an interaction counter.
+- `level3_paths` verifies each source's exact two finite reflections and target, rejects paths crossing solid geometry, checks reflection normals and tests all 16 +/-0.2 degree joint-error combinations. Both circuits work throughout that precision margin.
+- `campaign` walks collision-aware routes and uses proximity controls through all three exits. `native_control_campaign` additionally sends real window messages through GLFW's key handling: Enter, Escape, WASD, Q/E, Shift and R. It reaches both final rubies at actual angles near +/-44.92 degrees, resets after the first seal, solves again and reaches victory without direct state assignment.

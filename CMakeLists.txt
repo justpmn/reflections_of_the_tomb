@@ -76,6 +76,7 @@ add_executable(
     reflections_of_the_tomb
     src/main.cpp
     src/core/GameApplication.cpp
+    src/core/ControlReplay.cpp
     src/rendering/GameUI.cpp
     src/core/Audio.cpp
     src/gameplay/GameSession.cpp
@@ -664,4 +665,19 @@ if(ENABLE_RENDER_SMOKE_TESTS)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/application_lifecycle_test.py"
         $<TARGET_FILE:reflections_of_the_tomb> "${CMAKE_CURRENT_SOURCE_DIR}")
     set_tests_properties(application_lifecycle PROPERTIES LABELS render TIMEOUT 60)
+endif()
+
+if(WIN32 AND ENABLE_RENDER_SMOKE_TESTS)
+    add_test(NAME native_control_campaign COMMAND reflections_of_the_tomb --control-test)
+    set_tests_properties(native_control_campaign PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 120)
+endif()
+add_executable(level3_paths_test tests/level3_paths_test.cpp)
+target_link_libraries(level3_paths_test PRIVATE campaign)
+target_compile_definitions(level3_paths_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME level3_paths COMMAND level3_paths_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    add_test(NAME atmospheric_background COMMAND ${Python_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/atmosphere_test.py"
+        $<TARGET_FILE:reflections_of_the_tomb> "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(atmospheric_background PROPERTIES LABELS render TIMEOUT 30)
 endif()

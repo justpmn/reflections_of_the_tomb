@@ -7,13 +7,14 @@
 
 class TempleScene {
 public:
-    Model floor,wall,pillar,mirror,ranger,door,spike,ruby,rubySealed;
+    Model floor,wall,pillar,mirror,ranger,door,spike,ruby,rubySealed,torch;
     bool animated=false;
     bool load() {
         const std::string kit="assets/vendor/kaykit_dungeon/KayKit_Dungeon_Pack_1.1_FREE/Assets/gltf/";
         bool ok=floor.load(kit+"floor_tile_large.gltf");
         ok=wall.load(kit+"wall.gltf")&&ok;
         ok=pillar.load(kit+"pillar_decorated.gltf")&&ok;
+        ok=torch.load(kit+"torch_lit.gltf")&&ok;
         ok=mirror.load("assets/models/mirrors/mirror_complete.glb")&&ok;
         ok=ranger.load("assets/models/characters/ranger/Ranger.glb",true)&&ok;
         animated=ranger.loadAnimations("assets/animations/characters/kaykit_medium/Rig_Medium_General.glb",
@@ -41,7 +42,25 @@ public:
             colors.push_back(g.rubies[i].isActivated()?glm::vec3(1.8f,.35f,.18f):glm::vec3(.6f,.04f,.03f));
         }
         for(const auto& e:l.lights) {lights.push_back(l.cellCenter(e.cell,metrics::beamHeight));colors.push_back({1.5f,1,.3f});}
+        const float width=l.width*cs,depth=l.height*cs;
+        const glm::vec3 torchPositions[]={{width*.28f,1.4f,2.25f},{width*.72f,1.4f,2.25f}};
+        for(const auto& p:torchPositions) {
+            lights.push_back(p+glm::vec3(0,.4f,0));
+            const float flicker=1.f+std::sin(time*4.3f+p.x)*.035f;
+            colors.push_back(glm::vec3(2.4f,1.15f,.3f)*flicker);
+        }
         r.setLights(lights,colors);
+        // Decorative foundation and terrace are outside the walkable/collision
+        // model. The hollow centre leaves authored pit geometry unobstructed.
+        r.drawBox({width*.5f,-l.pitDepth-.7f,depth*.5f},{width+4,.8f,depth+4},{.10f,.14f,.22f});
+        const float foundationHeight=l.pitDepth+.4f;
+        const float foundationY=-.23f-foundationHeight*.5f;
+        for(float x:{0.f,width})r.drawBox({x,foundationY,depth*.5f},{4,foundationHeight,depth+4},{.20f,.25f,.35f});
+        for(float z:{0.f,depth})r.drawBox({width*.5f,foundationY,z},{width-4,foundationHeight,4},{.20f,.25f,.35f});
+        for(int row=-1;row<=l.height;++row)for(int col=-1;col<=l.width;++col)
+            if(col<1||row<1||col>=l.width-1||row>=l.height-1)
+                r.drawModel(floor,place({(col+.5f)*cs,-.175f,(row+.5f)*cs},cs/4),{.48f,.56f,.72f});
+        for(const auto& p:torchPositions)r.drawModel(torch,place(p,.65f),glm::vec3(1),.12f);
         const glm::ivec2 neighbors[]={{0,-1},{1,0},{0,1},{-1,0}};
         for(int z=0;z<l.height;++z) for(int x=0;x<l.width;++x) {
             const glm::ivec2 cell(x,z);const auto tile=l.tileAt(cell);const auto p=l.cellCenter(cell);
@@ -114,6 +133,10 @@ public:
         const float upright=std::atan2(normal.y,normal.z);
         for(size_t i=0;i<g.mirrors.size();++i) {
             const auto p=g.mirrors[i].getCenter();
+            if(int(i)==selected) {
+                const glm::vec3 ring[]={{p.x-.70f,.035f,p.y-.70f},{p.x+.70f,.035f,p.y-.70f},{p.x+.70f,.035f,p.y+.70f},{p.x-.70f,.035f,p.y+.70f}};
+                for(int edge=0;edge<4;++edge)r.drawBeam(ring[edge],ring[(edge+1)%4],{1,.57f,.12f},.025f,.34f);
+            }
             auto moving=place({p.x,metrics::beamHeight,p.y},metrics::mirrorScale,glm::radians(-g.mirrors[i].getAngle()));
             moving=glm::rotate(moving,upright,glm::vec3(1,0,0));
             moving=glm::translate(moving,-surface);
@@ -143,6 +166,6 @@ public:
         r.drawModel(ranger,place({p.x,.002f,p.z},metrics::rangerScale,std::atan2(f.x,f.z)),glm::vec3(1));
         // Thin bright core and a wider translucent gold shell; depth-tested in 3D.
         r.drawBeamSegments(g.beams,{1,.48f,.055f},.10f,.08f);
-        r.drawBeamSegments(g.beams,{1,.68f,.15f},.027f,.40f);
+        r.drawBeamSegments(g.beams,{1,.68f,.15f},.035f,.46f);
     }
 };

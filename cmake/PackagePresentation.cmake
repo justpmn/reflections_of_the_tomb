@@ -25,11 +25,12 @@ foreach(model models/mirrors/mirror_complete.glb models/characters/ranger/Ranger
 endforeach()
 set(kit "assets/vendor/kaykit_dungeon/KayKit_Dungeon_Pack_1.1_FREE/Assets/gltf")
 foreach(asset floor_tile_large.gltf floor_tile_large.bin wall.gltf wall.bin
-    pillar_decorated.gltf pillar_decorated.bin dungeon_texture.png)
+    pillar_decorated.gltf pillar_decorated.bin torch_lit.gltf torch_lit.bin dungeon_texture.png)
     file(COPY "${SOURCE}/${kit}/${asset}" DESTINATION "${DESTINATION}/${kit}")
 endforeach()
 file(COPY "${SOURCE}/docs/PLAYING.md" "${SOURCE}/docs/THIRD_PARTY_AUDIO.md"
     "${SOURCE}/docs/INTEGRATION_STATUS.md" "${SOURCE}/docs/PUZZLE_VERIFICATION.md" DESTINATION "${DESTINATION}")
+file(COPY "${SOURCE}/docs/CRASH_INVESTIGATION.md" "${SOURCE}/docs/diagnostics" DESTINATION "${DESTINATION}")
 file(COPY "${SOURCE}/docs/screenshots" DESTINATION "${DESTINATION}")
 file(WRITE "${DESTINATION}/Play.cmd" "@echo off\r\ncd /d \"%~dp0\"\r\nreflections_of_the_tomb.exe\r\n")
 message(STATUS "Presentation build ready: ${DESTINATION}")

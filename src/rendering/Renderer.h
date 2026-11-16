@@ -67,6 +67,8 @@ private:
 
     // Dedicated magical beam shader.
     Shader beamShader;
+    Shader backgroundShader;
+    unsigned int backgroundVAO=0;
 
     // 2D rectangle buffers.
     unsigned int VAO = 0;

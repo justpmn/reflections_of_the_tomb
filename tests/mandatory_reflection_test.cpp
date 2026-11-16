@@ -130,21 +130,43 @@ int main() {
                 auto disabledWalls=g.walls;
                 disabledWalls.push_back({g.mirrors[missing].getEndpointA(),g.mirrors[missing].getEndpointB()});
                 std::vector<bool> reachableDisabled(l.rubies.size(),false);
-                std::function<void(size_t)> search=[&](size_t depth) {
-                    if(depth<remaining.size()) {
-                        // All 161^N integer-degree combinations, including both limits.
-                        for(int angle=-80;angle<=80;++angle) {remaining[depth].setAngle(float(angle));search(depth+1);}return;
+                // Factor independent optical components. The envelope graph is
+                // conservative for all angles, so a ray cannot bounce between
+                // disconnected components. Removing the other components only
+                // enlarges reachable paths; every integer-angle state is covered
+                // without an unnecessary 161^3 Cartesian product for two circuits.
+                const auto faces=mergedFaces(g.walls);
+                std::vector<std::vector<Mirror>> components;
+                std::vector<bool> assigned(remaining.size(),false);
+                for(size_t seed=0;seed<remaining.size();++seed) if(!assigned[seed]) {
+                    std::vector<Mirror> group;std::queue<size_t> queue;queue.push(seed);assigned[seed]=true;
+                    while(!queue.empty()) {
+                        const auto from=queue.front();queue.pop();group.push_back(remaining[from]);
+                        const auto p=remaining[from].getCenter();const glm::vec2 extent(metrics::mirrorLength*.5f);
+                        for(size_t to=0;to<remaining.size();++to) if(!assigned[to]) {
+                            const auto q=remaining[to].getCenter();
+                            if(!blocked({p-extent,p+extent},{q-extent,q+extent},faces)) {assigned[to]=true;queue.push(to);}
+                        }
                     }
-                    ++configurations;
-                    for(const auto& light:l.lights) {
-                        const auto d=world::dirToVec(light.dir);
-                        const auto result=BeamTracer::traceWithRubies(l.cellCenterXZ(light.cell),{d.x,d.z},remaining,targets(l),12,200,metrics::beamHeight,g.walls);
-                        if(result.hitRubyIndex>=0) reachable[result.hitRubyIndex]=true;
-                        const auto disabled=BeamTracer::traceWithRubies(l.cellCenterXZ(light.cell),{d.x,d.z},remaining,targets(l),12,200,metrics::beamHeight,disabledWalls);
-                        if(disabled.hitRubyIndex>=0) reachableDisabled[disabled.hitRubyIndex]=true;
-                    }
-                };
-                search(0);
+                    components.push_back(std::move(group));
+                }
+                components.push_back({}); // Also verify the no-reflection/direct rays.
+                for(auto& component:components) {
+                    std::function<void(size_t)> search=[&](size_t depth) {
+                        if(depth<component.size()) {
+                            for(int angle=-80;angle<=80;++angle) {component[depth].setAngle(float(angle));search(depth+1);}return;
+                        }
+                        ++configurations;
+                        for(const auto& light:l.lights) {
+                            const auto d=world::dirToVec(light.dir);
+                            const auto result=BeamTracer::traceWithRubies(l.cellCenterXZ(light.cell),{d.x,d.z},component,targets(l),12,200,metrics::beamHeight,g.walls);
+                            if(result.hitRubyIndex>=0) reachable[result.hitRubyIndex]=true;
+                            const auto disabled=BeamTracer::traceWithRubies(l.cellCenterXZ(light.cell),{d.x,d.z},component,targets(l),12,200,metrics::beamHeight,disabledWalls);
+                            if(disabled.hitRubyIndex>=0) reachableDisabled[disabled.hitRubyIndex]=true;
+                        }
+                    };
+                    search(0);
+                }
                 bool impossible=false;
                 for(const auto& door:l.doors) for(int ruby:door.needsRubies) if(!reachable[ruby]) impossible=true;
                 check(impossible,"angle search found a bypass, even with permanent sealing");

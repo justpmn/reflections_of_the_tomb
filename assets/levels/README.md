@@ -78,9 +78,9 @@ const world::Level& L = levels.current();
 ## The 3 levels (presentation overhaul)
 1. **The Entrance Hall**: one mirror must turn light north to the ruby.
 2. **Hall of Spikes**: two mirrors turn light south, then west; a real wall baffle blocks the former diagonal shortcut.
-3. **The Inner Sanctum**: one source and three mirrors, reflection order north -> east -> west, around two wall baffles. Set the west mirror to +45 for the north ruby, then -45 for the south ruby. Permanent sealing allows the two-stage solution.
+3. **The Inner Sanctum**: two sources, four mirrors, two ruby targets. Independent two-reflection paths are left source -> mirror 0 -> mirror 2 -> ruby 0 and right source -> mirror 1 -> mirror 3 -> ruby 1. Baffles at columns 3/11 block diagonals; a central divider at column 7 blocks cross-circuit shortcuts. The lower passage connects both player routes.
 
-The original loader, team ownership and designs are preserved in Git history. The presentation redesign deliberately replaces the previous two-source last chamber with a stronger sequential three-mirror puzzle. See `docs/PUZZLE_VERIFICATION.md` for continuous-angle necessity proofs, exhaustive real-tracer removal/disable checks and walking-route verification.
+The critical-fix redesign replaces the previous three-mirror sequential sealing step. All four solution angles are +/-45 within the actual [-80,80] Q/E range. Every combination of +/-0.2 degree alignment error around those solutions is tested against the real finite BeamTracer. The original loader, ownership and previous authored designs remain in Git history. See `docs/PUZZLE_VERIFICATION.md` for continuous-angle necessity proofs and native control verification.
 
 ## Graphics concepts used (for the report)
 - **Polygon representation**: the temple is built from quads (2 triangles each) generated from the grid.
