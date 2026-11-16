@@ -17,7 +17,10 @@ public:
 
     // Check whether the trap is dangerous.
     bool isActive() const;
+    void update(float seconds);
+    float extension() const { return extensionAmount; }
 
 private:
     bool active;
+    float extensionAmount = 1;
 };

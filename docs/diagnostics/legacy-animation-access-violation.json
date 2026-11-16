@@ -1,0 +1,89 @@
+{
+  "kind": "controlled reconstruction, not a spontaneous failure of the current campaign executable",
+  "baseline_commit": "9e002f8",
+  "debugger": "Android Studio LLDB DAP 23.0.0git",
+  "build": "GCC 16.2 -g -O1 -fno-omit-frame-pointer",
+  "stop": {
+    "allThreadsStopped": true,
+    "description": "Exception 0xc0000005 encountered at address 0x7ff6f4ac3074: Access violation reading location 0x00000000",
+    "reason": "exception",
+    "threadId": 23388
+  },
+  "exception": {
+    "breakMode": "always",
+    "description": "Exception 0xc0000005 encountered at address 0x7ff6f4ac3074: Access violation reading location 0x00000000",
+    "exceptionId": "exception"
+  },
+  "stack": {
+    "stackFrames": [
+      {
+        "column": 51,
+        "id": 524288,
+        "instructionPointerReference": "0x7FF6F4AC3074",
+        "line": 115,
+        "moduleId": "F76ED5B9",
+        "name": "GameSession::update(float, float, float)",
+        "source": {
+          "name": "GameSession.cpp",
+          "path": "C:\\projects\\reflection of  the tomb\\reflections_of_the_tomb\\src\\gameplay\\GameSession.cpp"
+        }
+      },
+      {
+        "column": 16,
+        "id": 524289,
+        "instructionPointerReference": "0x7FF6F4AC1600",
+        "line": 10,
+        "moduleId": "F76ED5B9",
+        "name": "main",
+        "source": {
+          "name": "repro_empty_ruby.cpp",
+          "path": "C:\\projects\\reflection of  the tomb\\reflections_of_the_tomb\\build-stability\\repro_empty_ruby.cpp"
+        }
+      },
+      {
+        "column": 1,
+        "id": 524290,
+        "instructionPointerReference": "0x7FF6F4AC1164",
+        "line": 51,
+        "moduleId": "F76ED5B9",
+        "name": "__tmainCRTStartup",
+        "source": {
+          "name": "__tmainCRTStartup",
+          "path": "C:\\projects\\reflection of  the tomb\\reflections_of_the_tomb\\build-stability\\repro_empty_ruby.exe`__tmainCRTStartup",
+          "presentationHint": "deemphasize",
+          "sourceReference": 4
+        }
+      },
+      {
+        "column": 1,
+        "id": 524291,
+        "instructionPointerReference": "0x7FFC7C54DDA7",
+        "line": 9,
+        "moduleId": "E8C3A48C-AC7E-B60D-8781-D8C10020C44F-00000001",
+        "name": "BaseThreadInitThunk",
+        "source": {
+          "name": "BaseThreadInitThunk",
+          "path": "C:\\Windows\\System32\\kernel32.dll`BaseThreadInitThunk",
+          "presentationHint": "deemphasize",
+          "sourceReference": 5
+        }
+      },
+      {
+        "column": 1,
+        "id": 524292,
+        "instructionPointerReference": "0x7FFC7D13EE4C",
+        "line": 13,
+        "moduleId": "C031D45B-0DA1-8A6E-74D0-6ED6AB2DD9E1-00000001",
+        "name": "RtlUserThreadStart",
+        "source": {
+          "name": "RtlUserThreadStart",
+          "path": "C:\\Windows\\System32\\ntdll.dll`RtlUserThreadStart",
+          "presentationHint": "deemphasize",
+          "sourceReference": 6
+        }
+      }
+    ],
+    "totalFrames": 5
+  },
+  "reconstruction": "restart campaign; release legacy rubySealing storage; activate ruby 0; update(0,0,0.016f)"
+}

@@ -13,9 +13,20 @@
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include <memory>
+#include <stdexcept>
 
 namespace {
 enum class Screen { Start, Play, Pause, Controls, Victory };
+struct GlfwLifetime {
+    GlfwLifetime() {if(!glfwInit())throw std::runtime_error("GLFW initialization failed");}
+    ~GlfwLifetime() {glfwTerminate();}
+};
+using WindowOwner=std::unique_ptr<GLFWwindow,decltype(&glfwDestroyWindow)>;
+struct ScrollBinding {
+    GLFWwindow* window;
+    ~ScrollBinding() {glfwSetScrollCallback(window,nullptr);glfwSetWindowUserPointer(window,nullptr);}
+};
 void locateAssets(const char* executable) {
     namespace fs=std::filesystem;
     if(fs::exists("assets/levels/level01.txt") && fs::exists("shaders/model.vert")) return;
@@ -34,7 +45,7 @@ void capture(int width,int height,const std::string& file) {
     std::ofstream out(file,std::ios::binary); out<<"P6\n"<<width<<' '<<height<<"\n255\n";
     for(int y=height-1;y>=0;--y) out.write(reinterpret_cast<char*>(pixels.data()+y*width*3),width*3);
 }
-int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot,Screen initialScreen,bool solvedPreview,const std::string& view) {
+int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot,Screen initialScreen,bool solvedPreview,const std::string& view,bool testThrow) {
     Renderer renderer;
     if(!renderer.initialize()) return 2;
     TempleScene scene;
@@ -58,6 +69,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
     Audio audio; audio.music();
     GameUI ui(renderer);
     if(!ui.ready()) {std::cerr<<"UI atlas/shader load failed\n";return 7;}
+    if(smoke&&testThrow)throw std::runtime_error("lifecycle test exception after GL/audio/UI initialization");
     Screen screen=initialScreen, back=Screen::Start;
     std::array<bool,GLFW_KEY_LAST+1> previous{};
     bool previousMouse=false;
@@ -65,6 +77,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
     int frames=0;
     float animationTime=0;
     float cameraZoom=1.f;
+    ScrollBinding scrollBinding{window};
     glfwSetWindowUserPointer(window,&cameraZoom);
     glfwSetScrollCallback(window,[](GLFWwindow* w,double,double y) {
         auto* zoom=static_cast<float*>(glfwGetWindowUserPointer(w));
@@ -227,31 +240,31 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
 int runGame(int argc,char** argv) {
     try {
         locateAssets(argv[0]);
-        bool smoke=false,solvedPreview=false;int preview=0;std::string screenshot,screenName,view;
+        bool smoke=false,solvedPreview=false,testThrow=false;int preview=0;std::string screenshot,screenName,view;
         for(int i=1;i<argc;++i) {
             const std::string arg=argv[i];
             if(arg=="--smoke") smoke=true;
             else if(arg=="--solved") solvedPreview=true;
+            else if(arg=="--test-throw") testThrow=true;
             else if(arg=="--view" && i+1<argc) view=argv[++i];
             else if(arg=="--level" && i+1<argc) preview=std::stoi(argv[++i])-1;
             else if(arg=="--capture" && i+1<argc) screenshot=argv[++i];
             else if(arg=="--screen" && i+1<argc) screenName=argv[++i];
         }
-        if(!glfwInit()) {std::cerr<<"GLFW initialization failed\n";return 1;}
+        GlfwLifetime glfw;
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,3);glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
         glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
         if(smoke) glfwWindowHint(GLFW_VISIBLE,GLFW_FALSE);
-        auto* window=glfwCreateWindow(1280,720,"Reflections of the Tomb",nullptr,nullptr);
-        if(!window) {glfwTerminate();return 1;}
-        glfwMakeContextCurrent(window);glfwSwapInterval(1);
-        if(!gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress))) {glfwDestroyWindow(window);glfwTerminate();return 1;}
+        WindowOwner window(glfwCreateWindow(1280,720,"Reflections of the Tomb",nullptr,nullptr),glfwDestroyWindow);
+        if(!window)return 1;
+        glfwMakeContextCurrent(window.get());glfwSwapInterval(1);
+        if(!gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)))return 1;
         // All GL owners are destroyed inside play(), while the context is still alive.
         Screen initial=smoke?Screen::Play:Screen::Start;
         if(screenName=="start") initial=Screen::Start;
         else if(screenName=="pause") initial=Screen::Pause;
         else if(screenName=="controls") initial=Screen::Controls;
         else if(screenName=="victory") initial=Screen::Victory;
-        const int result=play(window,smoke,preview,screenshot,initial,solvedPreview,view);
-        glfwDestroyWindow(window);glfwTerminate();return result;
+        return play(window.get(),smoke,preview,screenshot,initial,solvedPreview,view,testThrow);
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 10;}
 }

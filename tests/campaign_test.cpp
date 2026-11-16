@@ -65,16 +65,16 @@ int main() {
             for(const auto& trap:g.traps) require(!trap.isActive(),"Linked traps deactivate");
             for(int frame=0;frame<25;++frame) g.update(0,0,.05f);
             require(g.doorLift==1.f,"Unlocked door animation reaches its fully open pose");
-            for(float extension:g.trapExtension) require(extension==0.f,"Deactivated spikes fully retract");
-            for(float sealing:g.rubySealing) require(sealing==1.f,"Activated ruby reaches sealing pose");
+            for(const auto& trap:g.traps) require(trap.extension()==0.f,"Deactivated spikes fully retract");
+            for(const auto& ruby:g.rubies) require(ruby.sealingProgress()==1.f,"Activated ruby reaches sealing pose");
             // Solutions must include the intended number of reflections, not a direct shortcut.
             require(g.beams.size()>=l.mirrors.size()+l.lights.size(),"Real reflected path segment count");
             for(const auto& beam:g.beams) require(std::abs(beam.start.y-metrics::beamHeight)<.001f,"Beam height matches world targets");
             require(g.reset(),"Reset current chamber");
             require(!g.solved(),"Reset closes doors and clears ruby activation");
             require(g.doorLift==0.f,"Reset restores closed door pose");
-            for(float extension:g.trapExtension) require(extension==1.f,"Reset restores active spike pose");
-            for(float sealing:g.rubySealing) require(sealing==0.f,"Reset restores floating ruby pose");
+            for(const auto& trap:g.traps) require(trap.extension()==1.f,"Reset restores active spike pose");
+            for(const auto& ruby:g.rubies) require(ruby.sealingProgress()==0.f,"Reset restores floating ruby pose");
             for(size_t i=0;i<g.mirrors.size();++i) require(g.mirrors[i].getAngle()==l.mirrors[i].angleDeg,"Reset mirror angle");
             // Solve again using only walking and the proximity-gated rotate API.
             for(size_t i=0;i<g.mirrors.size();++i) {

@@ -101,7 +101,7 @@ public:
                 if(int(mesh)==crystal) {
                     const float centre=asset.meshCenter(mesh).y;
                     pos.y=metrics::beamHeight-centre;
-                    if(lit) pos.y*=1-g.rubySealing[i];
+                    if(lit) pos.y*=1-g.rubies[i].sealingProgress();
                     else pos.y+=std::sin(time*1.8f+float(i))*.025f;
                     glow=lit?.75f:.12f;
                 } else if(asset.meshName(mesh).find("Rune")!=std::string::npos) glow=lit?.7f:.12f;
@@ -135,7 +135,7 @@ public:
             const auto p=l.cellCenter(l.traps[i].cell);
             for(unsigned int mesh=0;mesh<spike.getMeshCount();++mesh) {
                 const bool spikes=spike.meshName(mesh)=="spikes";
-                auto mat=place(p+glm::vec3(0,-.025f+(spikes?g.trapExtension[i]*.85f:0),0),cs/4);
+                auto mat=place(p+glm::vec3(0,-.025f+(spikes?g.traps[i].extension()*.85f:0),0),cs/4);
                 r.drawModelMesh(spike,mesh,mat,glm::vec3(1),0,spikes?0.f:-1000.f);
             }
         }

@@ -14,8 +14,11 @@ public:
 
     bool isActivated() const;
     bool isRealRuby() const;
+    void update(float seconds);
+    float sealingProgress() const { return sealing; }
 
 private:
     bool real;
     bool activated;
+    float sealing = 0;
 };

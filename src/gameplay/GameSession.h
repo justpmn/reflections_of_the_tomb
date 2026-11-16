@@ -31,7 +31,6 @@ public:
     std::vector<WallSegment> walls;
     std::vector<player3d::ObstacleXZ> obstacles;
     float doorLift = 0;
-    std::vector<float> trapExtension,rubySealing;
 private:
     bool initializeLevel();
 };

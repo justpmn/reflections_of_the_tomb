@@ -655,3 +655,13 @@ if(ENABLE_RENDER_SMOKE_TESTS)
         set_tests_properties(render_level_${level}_open PROPERTIES LABELS render TIMEOUT 30)
     endforeach()
 endif()
+add_executable(session_lifecycle_test tests/session_lifecycle_test.cpp)
+target_link_libraries(session_lifecycle_test PRIVATE campaign)
+target_compile_definitions(session_lifecycle_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME session_lifecycle COMMAND session_lifecycle_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    add_test(NAME application_lifecycle COMMAND ${Python_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/application_lifecycle_test.py"
+        $<TARGET_FILE:reflections_of_the_tomb> "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(application_lifecycle PROPERTIES LABELS render TIMEOUT 60)
+endif()

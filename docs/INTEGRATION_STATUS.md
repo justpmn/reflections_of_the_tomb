@@ -69,3 +69,11 @@ Screenshot review found and resolved a rim-normal mirror tilt, excessive camera-
 `presentation_build` includes the new UI atlases and both authored ruby variants, original runtime assets, shaders and compiler runtime DLLs. `Play.cmd` remains the launch entry point. The old package remains available as the rollback copy. The rebuilt package was launched from `docs/` with compiler directories removed from PATH: the main menu and all three solved chambers loaded bundled models/UI assets/audio and returned GL error 0. No source-tree working directory was required.
 
 No known blocking failure remains in the tested build. A new human keyboard/mouse rehearsal, physical speaker confirmation and other GPUs/operating systems remain unverified. The renderer uses practical material shading and approximate contact shadows; full physically based image lighting, shadow maps, screen-space mirror images and animation blending are outside this overhaul. Existing beam reflection physics, music, idle/walk skinning and static animation fallback remain intact.
+
+## Stability repair checkpoint
+
+Rollback tag: `integration-before-stability-fixes` at `9e002f8`; old runnable package copied to `build-desktop/rollback-before-stability-fixes`.
+
+The current baseline passed 30 repeated campaign runs and a clean LLDB run. A controlled reconstruction of the earlier empty animation-array initialization defect captured 0xC0000005 at GameSession.cpp:115, during the first activated ruby tick. The user's particular popup/build remains uncorrelated; see `docs/CRASH_INVESTIGATION.md` for the exact evidence and limitation. Animation progress now belongs to Ruby/Trap objects; the parallel arrays no longer exist. GLFW/window lifetime is exception-safe and callback bindings are detached before their state expires. New entity-reallocation, multi-level reset and real GL/audio/UI exception-shutdown regression tests pass. Full suite at this checkpoint: 40 tests.
+
+Level 3 redesign and atmospheric improvements are next; Levels 1 and 2 remain unchanged.

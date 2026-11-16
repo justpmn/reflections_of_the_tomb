@@ -20,12 +20,10 @@ bool GameSession::initializeLevel() {
     mirrors.clear(); rubies.clear(); doors.assign(l.doors.size(), Door{});
     traps.assign(l.traps.size(), Trap{}); walls.clear(); obstacles.clear(); beams.clear();
     doorLift = 0;
-    trapExtension.assign(traps.size(),1.f);
 
     for (const auto& m : l.mirrors)
         mirrors.emplace_back(l.cellCenterXZ(m.cell), metrics::mirrorLength, m.angleDeg, -80.f, 80.f);
     for (const auto& r : l.rubies) { (void)r; rubies.emplace_back(true); }
-    rubySealing.assign(rubies.size(),0.f);
     for (const auto& b : world::buildStaticColliders(l)) {
         obstacles.push_back({b.min.x, b.max.x, b.min.z, b.max.z});
         walls.push_back({{b.min.x,b.min.z},{b.max.x,b.min.z}});
@@ -109,10 +107,8 @@ void GameSession::update(float x,float z,float dt) {
     }
     player.update(x,z,dt,{0,l.width*l.cellSize,0,l.height*l.cellSize},solid);
     doorLift = std::min(1.f,doorLift+(solved()?dt:0.f));
-    for(size_t i=0;i<traps.size();++i)
-        trapExtension[i]=std::clamp(trapExtension[i]+(traps[i].isActive()?1.f:-1.f)*dt*2.f,0.f,1.f);
-    for(size_t i=0;i<rubies.size();++i) if(rubies[i].isActivated())
-        rubySealing[i]=std::min(1.f,rubySealing[i]+dt*1.8f);
+    for(auto& trap:traps) trap.update(dt);
+    for(auto& ruby:rubies) ruby.update(dt);
     const auto p=player.position();
     const auto cell=l.worldToCell({p.x,0,p.z});
     const int t=l.trapAt(cell);
