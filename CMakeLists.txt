@@ -9,6 +9,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
+# Keep assert-based team tests active in Release configurations too.
+if(MSVC)
+    add_compile_options(/UNDEBUG)
+else()
+    add_compile_options(-UNDEBUG)
+endif()
 
 # --------------------------------------------------
 # GLFW
@@ -69,6 +75,14 @@ glad_add_library(
 add_executable(
     reflections_of_the_tomb
     src/main.cpp
+    src/core/GameApplication.cpp
+    src/core/ControlReplay.cpp
+    src/rendering/GameUI.cpp
+    src/core/Audio.cpp
+    src/gameplay/GameSession.cpp
+    src/world/Level.cpp
+    src/world/LevelManager.cpp
+    src/world/TempleMesh.cpp
 
     # Rendering
     src/rendering/Renderer.cpp
@@ -196,9 +210,9 @@ add_test(
 
 add_executable(
     level_demo
-    src/world/level_demo.cpp
-    src/world/Level.cpp
-    src/world/LevelManager.cpp
+    experiments/level_raster_demo/level_demo.cpp
+    experiments/level_raster_demo/Level.cpp
+    experiments/level_raster_demo/LevelManager.cpp
 )
 
 target_include_directories(
@@ -551,3 +565,152 @@ add_test(
     NAME player_movement_3d
     COMMAND player_movement_3d_test
 )
+
+# Integration campaign and Zahra's original level verification.
+add_library(campaign STATIC
+    src/gameplay/GameSession.cpp src/world/Level.cpp src/world/LevelManager.cpp
+    src/world/TempleMesh.cpp src/player/PlayerMovement3D.cpp src/mirror/Mirror.cpp
+    src/beam/BeamTracer.cpp src/beam/BeamSystem.cpp src/physics/Intersections.cpp
+    src/gameplay/Ruby.cpp src/gameplay/Door.cpp src/gameplay/Trap.cpp)
+target_include_directories(campaign PUBLIC src)
+target_link_libraries(campaign PUBLIC glm::glm)
+add_executable(level_test tests/level_test.cpp)
+target_link_libraries(level_test PRIVATE campaign)
+target_compile_definitions(level_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME levels COMMAND level_test)
+add_executable(campaign_test tests/campaign_test.cpp)
+target_link_libraries(campaign_test PRIVATE campaign)
+target_compile_definitions(campaign_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME campaign COMMAND campaign_test)
+add_executable(level_preview demos/level_preview.cpp src/world/Level.cpp)
+target_include_directories(level_preview PRIVATE src)
+target_link_libraries(level_preview PRIVATE glm::glm)
+foreach(level_name level01 level02 level03 level04 level05)
+    add_test(NAME level_preview_${level_name} COMMAND level_preview ${CMAKE_CURRENT_SOURCE_DIR}/assets/levels/${level_name}.txt)
+endforeach()
+target_compile_definitions(reflections_of_the_tomb PRIVATE GAME_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+if(WIN32)
+    target_link_libraries(reflections_of_the_tomb PRIVATE winmm)
+    foreach(runtime libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll)
+        get_filename_component(compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+        if(EXISTS "${compiler_dir}/${runtime}")
+            add_custom_command(TARGET reflections_of_the_tomb POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${compiler_dir}/${runtime}" "$<TARGET_FILE_DIR:reflections_of_the_tomb>")
+        endif()
+    endforeach()
+endif()
+
+
+# Register Jesse's existing unit tests, which were previously absent from CTest.
+foreach(test_name door trap ruby ruby_collision puzzle puzzle_beam)
+    add_executable(${test_name}_test tests/${test_name}_test.cpp
+        src/gameplay/PuzzleSystem.cpp src/gameplay/RubyCollision.cpp)
+    target_link_libraries(${test_name}_test PRIVATE campaign)
+    add_test(NAME ${test_name} COMMAND ${test_name}_test)
+endforeach()
+add_executable(level_export_obj demos/level_export_obj.cpp)
+target_link_libraries(level_export_obj PRIVATE campaign)
+option(ENABLE_RENDER_SMOKE_TESTS "Run tests requiring an OpenGL desktop and audio device" OFF)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    foreach(level RANGE 1 5)
+        add_test(NAME render_level_${level} COMMAND reflections_of_the_tomb --smoke --level ${level})
+        set_tests_properties(render_level_${level} PROPERTIES LABELS "render" TIMEOUT 30)
+    endforeach()
+endif()
+
+add_executable(audio_decode_test tests/audio_decode_test.cpp src/core/Audio.cpp)
+target_include_directories(audio_decode_test PRIVATE src)
+target_compile_definitions(audio_decode_test PRIVATE AUDIO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/Audio and Sounds")
+if(UNIX)
+    target_link_libraries(audio_decode_test PRIVATE pthread ${CMAKE_DL_LIBS} m)
+    target_link_libraries(reflections_of_the_tomb PRIVATE pthread ${CMAKE_DL_LIBS} m)
+endif()
+add_test(NAME audio_decode COMMAND audio_decode_test)
+add_executable(software_raster_demo experiments/software_raster_demo/main.cpp)
+add_test(NAME software_raster_algorithms COMMAND software_raster_demo --self-test)
+add_custom_target(presentation_build
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DEXECUTABLE=$<TARGET_FILE:reflections_of_the_tomb>"
+        "-DDESTINATION=${CMAKE_CURRENT_BINARY_DIR}/presentation"
+        "-DVERIFICATION_CAPTURES=${CMAKE_CURRENT_BINARY_DIR}/polish-screenshots"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackagePresentation.cmake"
+    DEPENDS reflections_of_the_tomb VERBATIM)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    foreach(screen start pause controls victory)
+        add_test(NAME render_${screen} COMMAND reflections_of_the_tomb --smoke --screen ${screen})
+        set_tests_properties(render_${screen} PROPERTIES LABELS "render" TIMEOUT 30)
+    endforeach()
+endif()
+add_executable(mandatory_reflection_test tests/mandatory_reflection_test.cpp)
+target_link_libraries(mandatory_reflection_test PRIVATE campaign)
+target_compile_definitions(mandatory_reflection_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME mandatory_reflections COMMAND mandatory_reflection_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    add_executable(model_asset_test tests/model_asset_test.cpp src/rendering/Model.cpp)
+    target_include_directories(model_asset_test PRIVATE src)
+    target_link_libraries(model_asset_test PRIVATE glfw glad_gl_core_33 glm::glm)
+    add_test(NAME model_asset_contract COMMAND model_asset_test)
+    set_tests_properties(model_asset_contract PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 30)
+    foreach(level RANGE 1 5)
+        add_test(NAME render_level_${level}_open COMMAND reflections_of_the_tomb --smoke --level ${level} --solved)
+        set_tests_properties(render_level_${level}_open PROPERTIES LABELS render TIMEOUT 30)
+    endforeach()
+endif()
+add_executable(session_lifecycle_test tests/session_lifecycle_test.cpp)
+target_link_libraries(session_lifecycle_test PRIVATE campaign)
+target_compile_definitions(session_lifecycle_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME session_lifecycle COMMAND session_lifecycle_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    add_test(NAME application_lifecycle COMMAND ${Python_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/application_lifecycle_test.py"
+        $<TARGET_FILE:reflections_of_the_tomb> "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(application_lifecycle PROPERTIES LABELS render TIMEOUT 60)
+endif()
+
+if(WIN32 AND ENABLE_RENDER_SMOKE_TESTS)
+    add_test(NAME native_control_campaign COMMAND reflections_of_the_tomb --control-test)
+    set_tests_properties(native_control_campaign PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 120)
+endif()
+add_executable(level3_paths_test tests/level3_paths_test.cpp)
+target_link_libraries(level3_paths_test PRIVATE campaign)
+target_compile_definitions(level3_paths_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME level3_paths COMMAND level3_paths_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    add_test(NAME atmospheric_background COMMAND ${Python_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/atmosphere_test.py"
+        $<TARGET_FILE:reflections_of_the_tomb> "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(atmospheric_background PROPERTIES LABELS render TIMEOUT 30)
+endif()
+
+add_executable(timed_trap_test tests/timed_trap_test.cpp)
+target_link_libraries(timed_trap_test PRIVATE campaign)
+target_compile_definitions(timed_trap_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME timed_traps COMMAND timed_trap_test)
+add_test(NAME campaign_phased_early COMMAND campaign_test 7.25)
+add_test(NAME campaign_phased_late COMMAND campaign_test 19.1)
+
+if(ENABLE_RENDER_SMOKE_TESTS)
+    foreach(level RANGE 4 5)
+        foreach(state safe warning extended)
+            add_test(NAME render_level_${level}_spikes_${state} COMMAND reflections_of_the_tomb --smoke --level ${level} --view spikes-${state})
+            set_tests_properties(render_level_${level}_spikes_${state} PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 30)
+        endforeach()
+    endforeach()
+endif()
+
+add_executable(gameplay_flow_test tests/gameplay_flow_test.cpp)
+target_link_libraries(gameplay_flow_test PRIVATE campaign)
+target_compile_definitions(gameplay_flow_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME gameplay_flow COMMAND gameplay_flow_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    foreach(view countdown transition death invulnerable)
+        if(view STREQUAL "transition" OR view STREQUAL "death" OR view STREQUAL "invulnerable")
+            set(preview_level 2)
+        else()
+            set(preview_level 1)
+        endif()
+        add_test(NAME render_polish_${view} COMMAND reflections_of_the_tomb --smoke --level ${preview_level} --view ${view})
+        set_tests_properties(render_polish_${view} PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 30)
+    endforeach()
+endif()

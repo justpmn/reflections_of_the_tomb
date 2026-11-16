@@ -1,0 +1,66 @@
+name: The Final Trial
+cell_size: 2.0
+wall_height: 2.0
+pit_depth: 2.5
+grid:
+######################
+#L...M.#L...M.#L...M.#
+#..#...#..#...#..#...#
+#..#...#..#...#..#...#
+#R...M.#R...M.#R...M.#
+#TTTTTT#TTTTTT#TTTTTT#
+#......#......#......#
+#._....#._....#._....#
+#......#......#......#
+#.S..................#
+#TTTTTTTTTTTTTTTTTTTT#
+###########D##########
+end
+light 0 dir E
+light 1 dir E
+light 2 dir E
+mirror 0 angle -45 solution 45
+mirror 1 angle -45 solution 45
+mirror 2 angle -45 solution 45
+mirror 3 angle 45 solution -45
+mirror 4 angle 45 solution -45
+mirror 5 angle 45 solution -45
+trap 0 timed 5.5 1.2 2.4 0.0
+trap 1 timed 5.5 1.2 2.4 0.0
+trap 2 timed 5.5 1.2 2.4 0.0
+trap 3 timed 5.5 1.2 2.4 0.0
+trap 4 timed 5.5 1.2 2.4 0.0
+trap 5 timed 5.5 1.2 2.4 0.0
+trap 6 timed 5.0 1.2 2.8 1.7
+trap 7 timed 5.0 1.2 2.8 1.7
+trap 8 timed 5.0 1.2 2.8 1.7
+trap 9 timed 5.0 1.2 2.8 1.7
+trap 10 timed 5.0 1.2 2.8 1.7
+trap 11 timed 5.0 1.2 2.8 1.7
+trap 12 timed 4.5 1.2 3.2 3.4
+trap 13 timed 4.5 1.2 3.2 3.4
+trap 14 timed 4.5 1.2 3.2 3.4
+trap 15 timed 4.5 1.2 3.2 3.4
+trap 16 timed 4.5 1.2 3.2 3.4
+trap 17 timed 4.5 1.2 3.2 3.4
+trap 18 disabled_by 0
+trap 19 disabled_by 0
+trap 20 disabled_by 0
+trap 21 disabled_by 0
+trap 22 disabled_by 0
+trap 23 disabled_by 0
+trap 24 disabled_by 0
+trap 25 disabled_by 1
+trap 26 disabled_by 1
+trap 27 disabled_by 1
+trap 28 disabled_by 1
+trap 29 disabled_by 1
+trap 30 disabled_by 1
+trap 31 disabled_by 1
+trap 32 disabled_by 2
+trap 33 disabled_by 2
+trap 34 disabled_by 2
+trap 35 disabled_by 2
+trap 36 disabled_by 2
+trap 37 disabled_by 2
+door 0 needs 0 1 2

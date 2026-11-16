@@ -1,4 +1,5 @@
-﻿
+#include <algorithm>
+
 #include "Renderer.h"
 
 #include <iostream>
@@ -194,7 +195,7 @@ namespace
     }
 
     // Configure Blinn-Phong lighting uniforms.
-    void setLightingUniforms(const Shader& shader)
+    void setLightingUniforms(const Shader& shader, const glm::vec3& eye)
     {
         GLint lightDirectionLocation =
             glGetUniformLocation(shader.ID, "uLightDirection");
@@ -218,7 +219,7 @@ namespace
             glUniform3f(lightDirectionLocation, -0.5f, 1.0f, 0.5f);
 
         if (viewPositionLocation != -1)
-            glUniform3f(viewPositionLocation, 0.0f, 6.0f, 10.0f);
+            glUniform3f(viewPositionLocation, eye.x, eye.y, eye.z);
 
         if (ambientLocation != -1)
             glUniform1f(ambientLocation, 0.35f);
@@ -252,6 +253,10 @@ namespace
 
         GLint colorLocation =
             glGetUniformLocation(shader.ID, "uColor");
+        const GLint materialLocation = glGetUniformLocation(shader.ID,"uMaterialColor");
+        if (materialLocation != -1) glUniform4f(materialLocation,1,1,1,1);
+        const GLint vertexColorLocation=glGetUniformLocation(shader.ID,"uHasVertexColor");
+        if(vertexColorLocation!=-1) glUniform1i(vertexColorLocation,GL_FALSE);
 
         if (modelLocation != -1)
         {
@@ -328,6 +333,10 @@ bool Renderer::initialize()
         return false;
     }
 
+    if(!backgroundShader.loadFromFiles("shaders/background.vert","shaders/background.frag")) {
+        shutdown();return false;
+    }
+    glGenVertexArrays(1,&backgroundVAO);
     // Create 2D rectangle buffers.
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -412,6 +421,12 @@ bool Renderer::initialize()
     return true;
 }
 
+void Renderer::setCamera(const glm::vec3& eye, const glm::vec3& target, float aspect)
+{
+    viewMatrix = glm::lookAt(eye, target, glm::vec3(0,1,0));
+    projectionMatrix = glm::perspective(glm::radians(45.f), aspect, .1f, 180.f);
+}
+
 // Clear the screen.
 void Renderer::beginFrame()
 {
@@ -428,6 +443,10 @@ void Renderer::beginFrame()
         GL_COLOR_BUFFER_BIT |
         GL_DEPTH_BUFFER_BIT
     );
+    glDisable(GL_DEPTH_TEST);glDepthMask(GL_FALSE);
+    backgroundShader.use();glBindVertexArray(backgroundVAO);
+    glDrawArrays(GL_TRIANGLES,0,3);glBindVertexArray(0);
+    glDepthMask(GL_TRUE);glEnable(GL_DEPTH_TEST);
 }
 
 // Draw a 2D rectangle.
@@ -438,7 +457,7 @@ void Renderer::drawRectangle(
     float height,
     float red,
     float green,
-    float blue)
+    float blue, float alpha)
 {
     if (!initialized)
         return;
@@ -465,7 +484,7 @@ void Renderer::drawRectangle(
             red,
             green,
             blue,
-            1.0f
+            alpha
         );
     }
 
@@ -479,23 +498,64 @@ void Renderer::drawRectangle(
         vertices
     );
 
+    if(alpha<1) {glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);}
     glDrawArrays(GL_TRIANGLES, 0, 6);
+    glDisable(GL_BLEND);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+}
+
+void Renderer::setLights(const std::vector<glm::vec3>& positions,const std::vector<glm::vec3>& colors) {
+    lightPositions=positions;lightColors=colors;
+}
+void Renderer::prepareMaterial(float glow) {
+    const auto id=modelShader.ID;
+    glUniform1f(glGetUniformLocation(id,"uClipFloor"),-1000);
+    glUniform1f(glGetUniformLocation(id,"uShadowRadius"),0);
+    glUniform1f(glGetUniformLocation(id,"uGlow"),glow);
+    glUniform1f(glGetUniformLocation(id,"uInstanceOpacity"),1);
+    glUniform3f(glGetUniformLocation(id,"uMaterialEmissive"),0,0,0);
+    glUniform1f(glGetUniformLocation(id,"uRoughness"),.8f);
+    glUniform1f(glGetUniformLocation(id,"uMetallic"),0);
+    glUniform1i(glGetUniformLocation(id,"uAlphaMode"),0);
+    const int count=static_cast<int>(std::min(size_t(8),std::min(lightPositions.size(),lightColors.size())));
+    glUniform1i(glGetUniformLocation(id,"uPointCount"),count);
+    if(count) {
+        glUniform3fv(glGetUniformLocation(id,"uPointPosition"),count,glm::value_ptr(lightPositions[0]));
+        glUniform3fv(glGetUniformLocation(id,"uPointColor"),count,glm::value_ptr(lightColors[0]));
+    }
+}
+void Renderer::drawShadow(const glm::vec3& p,float radius) {
+    modelShader.use();
+    setModelUniforms(modelShader,glm::scale(glm::translate(glm::mat4(1),p+glm::vec3(0,.008f,0)),glm::vec3(radius*2,.004f,radius*2)),viewMatrix,projectionMatrix,glm::vec3(0));
+    prepareMaterial(0);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uShadowRadius"),radius);
+    glUniform2f(glGetUniformLocation(modelShader.ID,"uShadowCenter"),p.x,p.z);
+    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
+    glBindVertexArray(beamVAO);glDrawArrays(GL_TRIANGLES,0,beamVertexCount);glBindVertexArray(0);
+    glDepthMask(GL_TRUE);glDisable(GL_BLEND);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uShadowRadius"),0);
+}
+void Renderer::drawBox(const glm::vec3& center,const glm::vec3& size,const glm::vec3& color) {
+    modelShader.use();
+    setLightingUniforms(modelShader,glm::vec3(glm::inverse(viewMatrix)[3]));
+    setModelUniforms(modelShader,glm::scale(glm::translate(glm::mat4(1),center),size),viewMatrix,projectionMatrix,color);
+    prepareMaterial(0);glUniform1i(glGetUniformLocation(modelShader.ID,"uHasTexture"),0);
+    glBindVertexArray(beamVAO);glDrawArrays(GL_TRIANGLES,0,beamVertexCount);glBindVertexArray(0);
 }
 
 // Draw an imported 3D model.
 void Renderer::drawModel(
     const Model& model,
     const glm::mat4& transform,
-    const glm::vec3& color)
+    const glm::vec3& color, float glow, float opacity)
 {
     if (!initialized)
         return;
 
     modelShader.use();
-    setLightingUniforms(modelShader);
+    setLightingUniforms(modelShader, glm::vec3(glm::inverse(viewMatrix)[3]));
 
     setModelUniforms(
         modelShader,
@@ -505,7 +565,10 @@ void Renderer::drawModel(
         color
     );
 
+    prepareMaterial(glow);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uInstanceOpacity"),std::clamp(opacity,0.f,1.f));
     model.draw(modelShader.ID);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uInstanceOpacity"),1);
 }
 
 // Draw one selected mesh.
@@ -513,13 +576,13 @@ void Renderer::drawModelMesh(
     const Model& model,
     unsigned int meshIndex,
     const glm::mat4& transform,
-    const glm::vec3& color)
+    const glm::vec3& color, float glow, float clipFloor)
 {
     if (!initialized)
         return;
 
     modelShader.use();
-    setLightingUniforms(modelShader);
+    setLightingUniforms(modelShader, glm::vec3(glm::inverse(viewMatrix)[3]));
 
     setModelUniforms(
         modelShader,
@@ -529,19 +592,21 @@ void Renderer::drawModelMesh(
         color
     );
 
+    prepareMaterial(glow);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uClipFloor"),clipFloor);
     model.drawMesh(meshIndex, modelShader.ID);
 }
 
 // Draw gemstone and pedestal.
 void Renderer::drawGemstone(
     const glm::mat4& transform,
-    const glm::vec3& crystalColor)
+    const glm::vec3& crystalColor, float crystalOffset)
 {
     if (!initialized)
         return;
 
     modelShader.use();
-    setLightingUniforms(modelShader);
+    setLightingUniforms(modelShader, glm::vec3(glm::inverse(viewMatrix)[3]));
 
     GLint hasTextureLocation =
         glGetUniformLocation(modelShader.ID, "uHasTexture");
@@ -549,6 +614,7 @@ void Renderer::drawGemstone(
     if (hasTextureLocation != -1)
         glUniform1i(hasTextureLocation, GL_FALSE);
 
+    prepareMaterial(0);
     // Draw pedestal.
     setModelUniforms(
         modelShader,
@@ -566,6 +632,9 @@ void Renderer::drawGemstone(
         pedestalVertexCount
     );
 
+    // The emitter pedestal stays grounded; only the crystal hovers at beam height.
+    setModelUniforms(modelShader,glm::translate(transform,glm::vec3(0,crystalOffset,0)),viewMatrix,projectionMatrix,crystalColor);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uGlow"),.4f);
     // Draw crystal.
     GLint colorLocation =
         glGetUniformLocation(modelShader.ID, "uColor");
@@ -596,7 +665,7 @@ void Renderer::drawBeam(
     const glm::vec3& start,
     const glm::vec3& end,
     const glm::vec3& color,
-    float thickness)
+    float thickness, float intensity)
 {
     if (!initialized || beamVAO == 0)
         return;
@@ -721,11 +790,12 @@ void Renderer::drawBeam(
     }
 
     if (intensityLocation != -1)
-        glUniform1f(intensityLocation, 2.5f);
+        glUniform1f(intensityLocation, intensity);
 
     // Additive blending creates a brighter emissive appearance.
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    glDepthMask(GL_FALSE);
 
     glBindVertexArray(beamVAO);
 
@@ -737,14 +807,14 @@ void Renderer::drawBeam(
 
     glBindVertexArray(0);
 
-    glDisable(GL_BLEND);
+    glDisable(GL_BLEND);glDepthMask(GL_TRUE);
 }
 
 // Draw multiple beam segments.
 void Renderer::drawBeamSegments(
     const std::vector<BeamSegment>& segments,
     const glm::vec3& color,
-    float thickness)
+    float thickness, float intensity)
 {
     if (!initialized || segments.empty())
         return;
@@ -755,7 +825,7 @@ void Renderer::drawBeamSegments(
             segment.start,
             segment.end,
             color,
-            thickness
+            thickness, intensity
         );
     }
 }
@@ -763,6 +833,8 @@ void Renderer::drawBeamSegments(
 // Release OpenGL resources.
 void Renderer::shutdown()
 {
+    if(backgroundVAO){glDeleteVertexArrays(1,&backgroundVAO);backgroundVAO=0;}
+    backgroundShader.destroy();
     if (beamVBO != 0)
     {
         glDeleteBuffers(1, &beamVBO);

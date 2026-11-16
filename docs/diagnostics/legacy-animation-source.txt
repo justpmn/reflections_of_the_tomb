@@ -1,0 +1,10 @@
+Source at 9e002f8; captured failure is line 115:
+109:     }
+110:     player.update(x,z,dt,{0,l.width*l.cellSize,0,l.height*l.cellSize},solid);
+111:     doorLift = std::min(1.f,doorLift+(solved()?dt:0.f));
+112:     for(size_t i=0;i<traps.size();++i)
+113:         trapExtension[i]=std::clamp(trapExtension[i]+(traps[i].isActive()?1.f:-1.f)*dt*2.f,0.f,1.f);
+114:     for(size_t i=0;i<rubies.size();++i) if(rubies[i].isActivated())
+115:         rubySealing[i]=std::min(1.f,rubySealing[i]+dt*1.8f);
+116:     const auto p=player.position();
+117:     const auto cell=l.worldToCell({p.x,0,p.z});

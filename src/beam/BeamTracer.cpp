@@ -297,6 +297,7 @@ BeamTraceResult BeamTracer::traceWithRubies(
 
         glm::vec2 normal =
             nearest.mirror->getNormal();
+        result.reflectedMirrorIndices.push_back(static_cast<std::size_t>(nearest.mirror-mirrors.data()));
 
         glm::vec3 incoming3D(
             currentDirection.x,

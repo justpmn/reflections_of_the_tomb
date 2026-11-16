@@ -1,0 +1,17 @@
+// Level 1 - teaches: rotate ONE mirror to light a ruby and open the door.
+name: The Entrance Hall
+cell_size: 2.0
+wall_height: 2.0
+grid:
+#########
+#.....R.#
+#L....M.#
+#.......#
+#P.S...P#
+#.......#
+####D####
+end
+light 0 dir E
+// starts as "\" (beam goes south, misses). Answer "/" sends it north to the ruby.
+mirror 0 angle 45 solution -45
+door 0 needs 0

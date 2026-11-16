@@ -1,0 +1,20 @@
+name: Hall of Spikes
+cell_size: 2.0
+wall_height: 2.0
+pit_depth: 2.5
+grid:
+###########
+#L.....M..#
+#.S.#.....#
+#...#.....#
+#R.....M..#
+#........P#
+#TTTTTTTTT#
+#.........#
+#####D#####
+end
+light 0 dir E
+mirror 0 angle -45 solution 45
+mirror 1 angle 45 solution -45
+traps disabled_by 0
+door 0 needs 0

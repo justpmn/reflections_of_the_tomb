@@ -5,3 +5,4 @@ build/
 *.blend[0-9]*
 /build-desktop/
 /build-laptop/
+/build-stability/
