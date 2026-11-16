@@ -210,6 +210,7 @@ struct Model::AnimationState {
     cgltf_data* walk=nullptr;
     const cgltf_animation* idleClip=nullptr;
     const cgltf_animation* walkClip=nullptr;
+    const cgltf_animation* deathClip=nullptr;
     std::vector<cgltf_node> rest;
     struct Primitive {
         const cgltf_skin* skin=nullptr;
@@ -599,7 +600,9 @@ void Model::drawMesh(
     glUniform1i(glGetUniformLocation(shaderProgram,"uAlphaMode"),mesh.alphaMode);
     glUniform1f(glGetUniformLocation(shaderProgram,"uAlphaCutoff"),mesh.alphaCutoff);
     if(mesh.doubleSided) glDisable(GL_CULL_FACE);else {glEnable(GL_CULL_FACE);glCullFace(GL_BACK);}
-    if(mesh.alphaMode==cgltf_alpha_mode_blend) {
+    float opacity=1;const auto opacityLocation=glGetUniformLocation(shaderProgram,"uInstanceOpacity");
+    if(opacityLocation>=0)glGetUniformfv(shaderProgram,opacityLocation,&opacity);
+    if(mesh.alphaMode==cgltf_alpha_mode_blend||opacity<.999f) {
         glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
     }
     const GLint vertexColorLocation=glGetUniformLocation(shaderProgram,"uHasVertexColor");
@@ -686,14 +689,30 @@ bool Model::loadAnimations(const std::string& idleFile,const std::string& walkFi
         return true;
     };
     const bool ok=loadClip(idleFile,"Idle_A",animation->idle,animation->idleClip) && loadClip(walkFile,"Walking_A",animation->walk,animation->walkClip);
+    if(ok)for(size_t i=0;i<animation->idle->animations_count;++i) {
+        const auto& clip=animation->idle->animations[i];
+        if(!clip.name||std::strcmp(clip.name,"Death_A"))continue;
+        bool compatible=true;
+        for(size_t c=0;c<clip.channels_count;++c){
+            const auto& channel=clip.channels[c];bool found=false;
+            if(channel.target_node&&channel.target_node->name)
+                for(size_t n=0;n<animation->model->nodes_count;++n)
+                    if(animation->model->nodes[n].name&&!std::strcmp(animation->model->nodes[n].name,channel.target_node->name))found=true;
+            compatible&=found&&(channel.sampler->interpolation==cgltf_interpolation_type_linear||channel.sampler->interpolation==cgltf_interpolation_type_step);
+        }
+        if(compatible)animation->deathClip=&clip;
+    }
+    std::cout<<(animation->deathClip?"Ranger Death_A compatible\n":"Ranger procedural death fallback\n");
     std::cout << (ok?"Ranger idle/walk rigs compatible\n":"Ranger animation incompatible; static fallback\n");
     return ok;
 }
 
-bool Model::animate(float seconds,bool walking)
+bool Model::hasDeathAnimation() const {return animation&&animation->deathClip;}
+
+bool Model::animate(float seconds,bool walking,bool dying)
 {
     if(!animation || !animation->idleClip || !animation->walkClip) return false;
-    const auto* clip=walking?animation->walkClip:animation->idleClip;
+    const auto* clip=dying&&animation->deathClip?animation->deathClip:walking?animation->walkClip:animation->idleClip;
     // Restore bind pose before each sample so switching clips never leaves stale joints.
     for(size_t n=0;n<animation->rest.size();++n) {
         auto& node=animation->model->nodes[n];const auto& rest=animation->rest[n];
@@ -707,7 +726,7 @@ bool Model::animate(float seconds,bool walking)
         float end=0;if(input->count) cgltf_accessor_read_float(input,input->count-1,&end,1);
         duration=std::max(duration,end);
     }
-    const float t=duration>0?std::fmod(std::max(seconds,0.f),duration):0;
+    const float t=duration>0?(dying?std::clamp(seconds/.95f,0.f,1.f)*duration:std::fmod(std::max(seconds,0.f),duration)):0;
     for(size_t c=0;c<clip->channels_count;++c) {
         const auto& channel=clip->channels[c];const auto& sampler=*channel.sampler;
         cgltf_node* target=nullptr;

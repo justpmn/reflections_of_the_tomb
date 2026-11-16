@@ -13,9 +13,11 @@ Run `Play.cmd` in the repository, or run `reflections_of_the_tomb.exe` in the pr
 | M | Mute/unmute all sound |
 | Mouse | Select menu buttons |
 
-Redirect the gold beams into the floating red rubies. A ruby seals permanently once hit; you can move a mirror afterward. The exit rises when all linked rubies are sealed. Walk into the doorway to advance. Ruby-controlled spikes retract when their linked ruby is sealed. Timed sections cycle independently: teal floor rails mean safe, amber warns before extension, and red accompanies raised spikes. Wait on ordinary floor, then cross the row promptly; do not wait on a spike plate. Timed hazards keep cycling even after the door unlocks unless explicitly linked to a ruby. Active spikes and pits return Ranger to the chamber spawn without erasing puzzle progress.
+Redirect the gold beams into the floating red rubies. A ruby seals permanently once hit; you can move a mirror afterward. The exit rises when all linked rubies are sealed. Walk into the doorway to advance. Ruby-controlled spikes retract when their linked ruby is sealed. Timed sections cycle independently: teal floor rails mean safe, amber warns before extension, and red accompanies raised spikes. Wait on ordinary floor, then cross the row promptly; do not wait on a spike plate. Timed hazards keep cycling even after the door unlocks unless explicitly linked to a ruby. Dangerous spikes and pits trigger a short death animation and defeat sound, then return Ranger to the chamber spawn with the respawn sound. Sealed rubies, unlocked doors and mirror angles survive. Movement and mirror interaction stop while dying. After respawn, Ranger flickers between normal and partial transparency for two seconds of hazard immunity; controls and mirror interactions work during protection. Protection then expires, restoring normal hazards.
 
-Pause offers Resume, Reset Chamber, Controls, Restart Campaign and Main Menu. Completing the fifth exit shows victory and Play Again.
+Every campaign entry begins with 3, 2, 1 and a brief GO! display. During this countdown, movement, mirror input, puzzle activation, hazards and spike cycles are frozen. Release any held WASD/Q/E keys before pressing them again after GO! Between chambers, a short fade shows the next level's number and authored title on black, then reveals its countdown. There is no sixth level.
+
+Pause offers Resume, Reset Chamber, Controls, Restart Campaign and Main Menu. Countdown, death, invulnerability and transition clocks all freeze during pause. R and Reset Chamber preserve the previous immediate-reset design: they restore the authored chamber without replaying the entry countdown. Restart Campaign starts Level 1 with its countdown and clears the respawn counter. Completing the fifth exit shows victory and Play Again.
 
 ## Presentation walkthrough (spoilers)
 
@@ -45,7 +47,7 @@ The first configuration downloads GLFW, GLM and GLAD. For the already populated 
 
 `presentation_build` creates `build-desktop/presentation` with the executable, compiler runtime DLLs, shaders and required assets. The folder can be copied as a unit; no source tree is required.
 
-Optional desktop checks: configure `-DENABLE_RENDER_SMOKE_TESTS=ON`. These hidden-window tests require a working OpenGL desktop. The game also accepts `--smoke --level 1` (or 2/3/4/5), `--screen start|pause|controls|victory`, `--solved`, `--view ruby|door`, and `--capture image.ppm` for validation captures. `--solved` and close-up views apply only in smoke mode. Run `python tools/CapturePresentation.py` to generate the reviewed PNG screenshots in `docs/screenshots`.
+Optional desktop checks: configure `-DENABLE_RENDER_SMOKE_TESTS=ON`. These hidden-window tests require a working OpenGL desktop. The game also accepts `--smoke --level 1` (or 2/3/4/5), `--screen start|pause|controls|victory`, `--solved`, `--view ruby|door`, and `--capture image.ppm` for validation captures. `--solved` and close-up views apply only in smoke mode. Run `python tools/CapturePresentation.py --output build-desktop/polish-screenshots` to generate the reviewed PNG screenshots under the ignored `build-desktop/polish-screenshots` directory.
 
 Ranger uses the supplied KayKit `Idle_A` and `Walking_A` clips retargeted by matching joint names with CPU skinning. Incompatible/missing clips use the static character. Audio uses existing assets through miniaudio and becomes silent if an audio device is unavailable. The supplied MP4 reflection chime is not used; existing WAV/OGG effects cover interactions instead.
 
@@ -56,3 +58,7 @@ The HUD shows the nearby mirror angle to one decimal place and the number of sea
 `reflections_of_the_tomb.exe --control-test` replays targeted native key messages into its own hidden GLFW window. It starts the campaign with Enter, tests pause/resume, walks using WASD, aligns mirrors using Q/E and Shift, resets Level 3 with R after sealing a ruby, solves again and walks through all five levels to victory without a hazard death. It also pauses in The Gauntlet and checks that every trap phase freezes. It never changes gameplay positions, angles or ruby states directly. Diagnostic snapshots go to `build-desktop/control-captures`.
 
 `python tools/RepeatCampaign.py --runs 100` checks fresh campaign-test process exits. `tools/DebugCampaign.py` uses the installed Android Studio LLDB adapter for symbolized checks; forensic details are in `docs/CRASH_INVESTIGATION.md`.
+
+The supplied General rig also provides compatible `Death_A`, sampled once through its final pose. If a future rig lacks that clip, the renderer uses a procedural collapse rather than interrupting gameplay. Pit deaths additionally lower the character. Per-instance shader opacity provides flicker without reloading the Ranger asset or changing shared materials.
+
+Validation views: `--smoke --view countdown`, `--smoke --level 2 --view transition`, `--smoke --level 2 --view death`, and `--smoke --level 2 --view invulnerable`. These are fixture previews; the native replay still completes the real campaign and now tests paused countdowns and held input through GO!.

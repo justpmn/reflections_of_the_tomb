@@ -22,10 +22,11 @@ int verify() {
         in vec3 N;in vec2 UV;in vec4 C;out vec4 result;
         uniform int probe;uniform sampler2D uTexture;uniform float offsetY;
         uniform vec4 uMaterialColor;uniform int uAlphaMode;uniform float uAlphaCutoff;
+        uniform float uInstanceOpacity=1.0;
         void main(){
             if(probe==0) result=vec4(normalize(N)*.5+.5,1);
             else if(probe==1) result=texture(uTexture,UV+vec2(0,offsetY))*C;
-            else if(probe==2) result=uMaterialColor;
+            else if(probe==2) result=vec4(uMaterialColor.rgb,uMaterialColor.a*uInstanceOpacity);
             else {if(uAlphaMode==1&&uMaterialColor.a<uAlphaCutoff) discard;result=vec4(1);}
         })";
     const auto v=stage(GL_VERTEX_SHADER,vertex),f=stage(GL_FRAGMENT_SHADER,fragment);
@@ -53,6 +54,15 @@ int verify() {
     check(std::abs(int(blendedPixel[0])-45)<=2&&std::abs(int(blendedPixel[1])-62)<=2,"BLEND material uses source alpha over opaque background");
     GLboolean depthWrite;glGetBooleanv(GL_DEPTH_WRITEMASK,&depthWrite);
     check(depthWrite==GL_TRUE&&glIsEnabled(GL_BLEND)==GL_FALSE,"transparent mesh restores depth writes and blending state");
+    glUniform1f(glGetUniformLocation(program,"uInstanceOpacity"),.32f);
+    const auto faded=sample(2);check(faded[0]<factor[0],"instance opacity blends authored material without replacing it");
+    glGetBooleanv(GL_DEPTH_WRITEMASK,&depthWrite);
+    check(depthWrite==GL_TRUE&&glIsEnabled(GL_BLEND)==GL_FALSE,"instance transparency restores GL blend/depth state");
+    glUniform1f(glGetUniformLocation(program,"uInstanceOpacity"),1);
+    const auto restored=sample(2);check(restored==factor,"following opaque instance is unchanged");
+    Model ranger;check(ranger.load("assets/models/characters/ranger/Ranger.glb",true),"Ranger skin load");
+    check(ranger.loadAnimations("assets/animations/characters/kaykit_medium/Rig_Medium_General.glb","assets/animations/characters/kaykit_medium/Rig_Medium_MovementBasic.glb")&&ranger.hasDeathAnimation(),"Death_A channels compatible with Ranger rig");
+    check(ranger.animate(.25f,false,true)&&ranger.animate(.95f,false,true)&&ranger.animate(0,false),"one-shot death and return to idle produce valid skinned buffers");
     check(glGetError()==GL_NO_ERROR,"asset contract probes have no OpenGL error");
     glDeleteProgram(program);
     std::cout<<"PASS selected scene, node transform, inverse-transpose normal, COLOR_0, sRGB UVs, sampler, RGBA and alpha-mask GPU probes\n";

@@ -1,4 +1,5 @@
 #include "gameplay/GameSession.h"
+#include "SessionTestHelpers.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -36,6 +37,7 @@ int main(){try{
         check(g.deaths==0,"circle outside plate corner does not collide with enclosing square");
         g.player=player3d::PlayerMovement3D({p.x,p.y});g.update(0,0,.016f);
         check(g.deaths==1&&g.rubies[0].isActivated(),"extended contact respawns but preserves seal");
+        finishRespawn(g);
         for(int frame=0;frame<20;++frame)g.update(0,0,.016f);
         check(g.deaths==1,"safe spawn cannot repeatedly retrigger hazard");
         check(g.reset(),"timed reset");for(size_t i=0;i<g.traps.size();++i)near(g.traps[i].cyclePosition(),initial[i],"all authored phases restored");

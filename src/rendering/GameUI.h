@@ -10,6 +10,7 @@ public:
     void viewport(int width,int height) {screenWidth=width;screenHeight=height;}
     void panel(float x,float y,float w,float h);
     void text(const std::string& value,float x,float y,float size=1,float red=.9f,float green=.84f,float blue=.66f);
+    void centeredText(const std::string& value,float y,float size=1,float red=.9f,float green=.84f,float blue=.66f);
     bool button(const std::string& label,float y,double mx,double my,bool click);
 private:
     struct Glyph {float x,y,advance;};

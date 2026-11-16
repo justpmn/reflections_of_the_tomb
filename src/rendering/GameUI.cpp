@@ -55,6 +55,13 @@ void GameUI::text(const std::string& value,float x,float y,float size,float red,
     glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(float),vertices.data(),GL_STREAM_DRAW);
     glDrawArrays(GL_TRIANGLES,0,static_cast<int>(vertices.size()/4));glBindVertexArray(0);glDisable(GL_BLEND);
 }
+void GameUI::centeredText(const std::string& value,float y,float size,float red,float green,float blue) {
+    const auto& font=size>=2.4f?roman:sans;
+    float advance=0;
+    for(unsigned char ch:value){const auto it=font.glyphs.find(std::toupper(ch));if(it!=font.glyphs.end())advance+=it->second.advance;}
+    const float width=advance*(16.f*size/46.f)*2.f/screenWidth;
+    text(value,-width*.5f,y,size,red,green,blue);
+}
 bool GameUI::button(const std::string& label,float y,double mx,double my,bool click) {
     const bool hover=mx>-.85&&mx<-.07&&my>y-.045&&my<y+.065;
     r.drawRectangle(-.85f,y-.045f,.78f,.11f,hover?.25f:.09f,hover?.21f:.12f,hover?.14f:.16f);

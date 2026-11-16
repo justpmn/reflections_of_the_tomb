@@ -1,3 +1,4 @@
+#include <algorithm>
 
 #include "Renderer.h"
 
@@ -513,6 +514,7 @@ void Renderer::prepareMaterial(float glow) {
     glUniform1f(glGetUniformLocation(id,"uClipFloor"),-1000);
     glUniform1f(glGetUniformLocation(id,"uShadowRadius"),0);
     glUniform1f(glGetUniformLocation(id,"uGlow"),glow);
+    glUniform1f(glGetUniformLocation(id,"uInstanceOpacity"),1);
     glUniform3f(glGetUniformLocation(id,"uMaterialEmissive"),0,0,0);
     glUniform1f(glGetUniformLocation(id,"uRoughness"),.8f);
     glUniform1f(glGetUniformLocation(id,"uMetallic"),0);
@@ -547,7 +549,7 @@ void Renderer::drawBox(const glm::vec3& center,const glm::vec3& size,const glm::
 void Renderer::drawModel(
     const Model& model,
     const glm::mat4& transform,
-    const glm::vec3& color, float glow)
+    const glm::vec3& color, float glow, float opacity)
 {
     if (!initialized)
         return;
@@ -564,7 +566,9 @@ void Renderer::drawModel(
     );
 
     prepareMaterial(glow);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uInstanceOpacity"),std::clamp(opacity,0.f,1.f));
     model.draw(modelShader.ID);
+    glUniform1f(glGetUniformLocation(modelShader.ID,"uInstanceOpacity"),1);
 }
 
 // Draw one selected mesh.

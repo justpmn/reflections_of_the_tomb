@@ -9,11 +9,18 @@ GameSession::GameSession(const std::string& dir)
 
 bool GameSession::restart() {
     victory = false; deaths = 0;
-    return levels.loadFirst() && initializeLevel();
+    return levels.loadFirst() && initializeLevel(true);
 }
-bool GameSession::reset() { return levels.reload() && initializeLevel(); }
+bool GameSession::reset() {
+    if(!levels.reload())return false;
+    victory=false;return initializeLevel();
+}
 
-bool GameSession::initializeLevel() {
+bool GameSession::initializeLevel(bool countdown) {
+    const Phase loadedPhase=countdown?Phase::Countdown:Phase::Playing;
+    phase=Phase::Countdown;phaseTime=0;paused=false;
+    if(countdown)++entrySerial;
+    characterState=CharacterState::Alive;characterTime=0;fellInPit=false;
     const auto& l = levels.current();
     const auto spawn = l.cellCenterXZ(l.playerSpawn);
     player = player3d::PlayerMovement3D({spawn.x, spawn.y}, 4.0f, .28f);
@@ -43,7 +50,8 @@ bool GameSession::initializeLevel() {
     for (const auto& m : l.mirrors) pedestal(m.cell,.53f);
     for (const auto& r : l.rubies) pedestal(r.cell,.675f);
     for (const auto& e : l.lights) pedestal(e.cell,.34f);
-    trace();
+    trace(); // Populate visible beams without activating an objective while loading.
+    phase=loadedPhase;
     return true;
 }
 
@@ -62,8 +70,9 @@ void GameSession::trace() {
         const auto hit = BeamTracer::traceWithRubies(l.cellCenterXZ(light.cell),
             {d.x,d.z}, mirrors, targets, 12, 200, metrics::beamHeight, blockers);
         beams.insert(beams.end(),hit.path.begin(),hit.path.end());
-        if (hit.hitRubyIndex >= 0) rubies.at(hit.hitRubyIndex).hitByLight();
+        if (controlsEnabled() && hit.hitRubyIndex >= 0) rubies.at(hit.hitRubyIndex).hitByLight();
     }
+    if(!controlsEnabled())return;
     for (size_t i=0;i<doors.size();++i) {
         bool ready = true;
         for (int r : l.doors[i].needsRubies) ready &= rubies.at(r).isActivated();
@@ -85,6 +94,7 @@ int GameSession::nearbyMirror() const {
     return best;
 }
 bool GameSession::rotate(float degrees) {
+    if(!controlsEnabled())return false;
     const int i = nearbyMirror();
     if (i < 0) return false;
     mirrors[i].setAngle(mirrors[i].getAngle()+degrees);
@@ -93,14 +103,46 @@ bool GameSession::rotate(float degrees) {
 bool GameSession::solved() const {
     return !doors.empty() && std::all_of(doors.begin(),doors.end(),[](const Door& d){return d.isOpen();});
 }
+bool GameSession::controlsEnabled()const {
+    return !paused&&phase==Phase::Playing&&(characterState==CharacterState::Alive||characterState==CharacterState::Invulnerable);
+}
+float GameSession::characterOpacity()const {
+    if(characterState==CharacterState::Respawning)return .25f;
+    if(characterState!=CharacterState::Invulnerable)return 1;
+    return std::fmod(characterTime,.24f)<.12f?1.f:.32f;
+}
+std::string GameSession::countdownLabel()const {
+    if(phase!=Phase::Countdown)return {};
+    return phaseTime<1?"3":phaseTime<2?"2":phaseTime<3?"1":"GO!";
+}
 bool GameSession::advance() {
-    if (!solved()) return false;
-    if (levels.isLastLevel()) { victory = true; return true; }
-    return levels.next() && initializeLevel();
+    if (!solved()||!controlsEnabled()) return false;
+    phase=Phase::FadeOut;phaseTime=0;return true;
 }
 void GameSession::update(float x,float z,float dt) {
-    if (victory) return;
+    if (victory||paused||!std::isfinite(dt)) return;
     dt = std::clamp(dt,0.f,.05f);
+    if(phase!=Phase::Playing) {
+        phaseTime+=dt;
+        if(phase==Phase::Countdown&&phaseTime>=3.45f){phase=Phase::Playing;phaseTime=0;}
+        else if(phase==Phase::FadeOut&&phaseTime>=.45f) {
+            if(levels.isLastLevel()){victory=true;phase=Phase::Victory;}
+            else if(levels.next()&&initializeLevel()){phase=Phase::Title;phaseTime=0;}
+        }else if(phase==Phase::Title&&phaseTime>=2.f){phase=Phase::FadeIn;phaseTime=0;}
+        else if(phase==Phase::FadeIn&&phaseTime>=.45f){phase=Phase::Countdown;phaseTime=0;++entrySerial;}
+        return;
+    }
+    if(characterState==CharacterState::Dying) {
+        characterTime+=dt;
+        if(characterTime>=.95f){
+            const auto spawn=levels.current().cellCenterXZ(levels.current().playerSpawn);
+            player=player3d::PlayerMovement3D({spawn.x,spawn.y},4.f,.28f);
+            characterState=CharacterState::Respawning;characterTime=0;
+        }
+        return;
+    }
+    if(characterState==CharacterState::Respawning){characterState=CharacterState::Invulnerable;characterTime=0;return;}
+    if(characterState==CharacterState::Invulnerable){characterTime+=dt;if(characterTime>=2.f){characterState=CharacterState::Alive;characterTime=0;}}
     trace();
     const auto& l = levels.current();
     auto solid = obstacles;
@@ -123,10 +165,11 @@ void GameSession::update(float x,float z,float dt) {
         const float dz=std::max(0.f,std::abs(p.z-centre.y)-.55f);
         onSpikes |= dx*dx+dz*dz<player.radius()*player.radius();
     }
-    if (l.isPit(cell) || onSpikes) {
-        ++deaths;
-        const auto spawn=l.cellCenterXZ(l.playerSpawn);
-        player=player3d::PlayerMovement3D({spawn.x,spawn.y},4.f,.28f); return;
+    if (characterState==CharacterState::Alive&&(l.isPit(cell) || onSpikes)) {
+        ++deaths;characterState=CharacterState::Dying;characterTime=0;fellInPit=l.isPit(cell);
+        // Clear the movement flag without moving or rebuilding puzzle entities.
+        player.update(0,0,0,{0,l.width*l.cellSize,0,l.height*l.cellSize},solid);
+        return;
     }
     const int d=l.doorAt(cell);
     if (d>=0 && doors[d].isOpen() && doorLift>=.95f) advance();

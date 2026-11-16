@@ -2,6 +2,18 @@
 
 Updated: 16 November 2026 (Africa/Nairobi). Branch: `integration`. No push or merge into main.
 
+## Final gameplay polish
+
+Baseline: `b591380`. Rollback tag `integration-before-final-polish` was created before editing. Existing five-level data, mirror geometry, BeamTracer, audio and assets are retained.
+
+- Character state: Alive -> Dying (0.95s) -> Respawning (spawn reposition) -> Invulnerable (2s) -> Alive. Hazard contact increments the counter exactly once, stops movement and mirror interaction, and plays the existing defeat sound. Respawn plays its existing sound and preserves seals, door state, mirror angles and trap phases. Simulation freezes during the short death pose.
+- Inspected supplied GLB animation metadata: General contains Death_A/Death_B and terminal poses; MovementBasic contains jumping/falling-related clips. Death_A's target names/interpolation match Ranger, so the existing CPU skeletal sampler now plays that compatible clip once, clamped at its final sample. Missing/incompatible death clips retain a procedural collapse fallback; pit deaths also descend visually.
+- Ranger opacity alternates between 1.0 and 0.32 every 0.12 simulation seconds during protection. Shader opacity is per instance, multiplies authored alpha, and defaults/resets to 1. Existing materials, textures and normals remain intact. GPU probes verify transparent draw state restoration and the next opaque instance.
+- Session phases: Countdown -> Playing -> FadeOut -> Title -> FadeIn -> Countdown. Each number lasts one second, GO lasts 0.45s. Timed hazards, puzzle activation, movement and exits freeze until play begins. Input must be released after being held through GO before movement/rotation can resume.
+- On exit, the old chamber fades for 0.45s; only at black is the next chamber loaded. Its metadata supplies the centered number and title for 2s, followed by a 0.45s reveal and its countdown. The fifth exit fades to victory without attempting Level 6. Countdown start audio is emitted once per entry by the same presentation path that displays it.
+- Pause freezes countdown, transition, death and protection clocks. Reset retains the existing immediate-reset behavior (no replayed countdown), clears character state, restores authored trap phases and mirror poses, and resets objectives. Campaign restart clears deaths and starts Level 1's countdown.
+- Timed tiles now have complete teal safe outlines, pulsing amber warning outlines with moving mechanical studs, and orange-red base outlines around visibly raised darker metallic-grey spikes. Tints apply only to the spike mesh instance; stone plates and other assets preserve their original materials.
+
 ## Five-level campaign delivered
 
 Sequence: **The Entrance Hall -> Hall of Spikes -> The Inner Sanctum -> The Gauntlet -> The Final Trial**. Level 3 advances to Level 4. Only the fifth completed exit reaches victory. HUD counters use LevelManager's actual count; victory reports five chambers and retains the respawn counter. The existing generic LevelManager supports the expanded path list without a replacement implementation.
@@ -31,7 +43,7 @@ A straight crossing including the Ranger footprint requires about 0.64 seconds a
 
 ## Verification
 
-- Release build passed. Complete suite: **58/58 tests passed**, including **24 graphics-labelled checks**. Final complete run: **35.29 seconds**.
+- Release build passed. Complete suite: **63/63 tests passed**, including **28 graphics-labelled checks**. Latest complete run: **38.81 seconds**.
 - Existing tests remain enabled. New coverage includes state transitions, smooth motion, 30/60/144 FPS equivalence, reaction/crossing margins, safe overlap, raised contact, circle-corner rejection, seal preservation, independent offsets, disable/reset, and authored phase restoration.
 - Level-manager coverage confirms the third chamber is no longer last and the fifth is last. All five authored puzzles pass loader/grid design checks and real continuous BeamTracer necessity checks.
 - Headless campaign walks to every mirror using real movement/collision and proximity rotation, then through all five exits, with zero hazard deaths. Additional full runs shift timed phases by 7.25 and 19.1 seconds and also finish safely.
@@ -40,16 +52,14 @@ A straight crossing including the Ranger footprint requires about 0.64 seconds a
 
 ## Visual verification
 
-`tools/CapturePresentation.py` generates **37 PNG OpenGL readbacks at 1280x720**, including all five normal/solved chambers, menu/controls/pause/victory, ruby/door close-ups, six new trap-state previews, and actual native-play intermediate states.
+`python tools/CapturePresentation.py --output build-desktop/polish-screenshots` produces 41 PNG OpenGL readbacks at 1280x720. Current captures and PPM intermediates remain in ignored build directories, excluded from staging as requested. The package can include these local verification PNGs without committing them.
 
-Inspected all five normal chamber views, the new solved chamber views, safe/warning/extended previews in both new chambers, native Level 4 initial/first seal/open states, native Level 5 initial/one/two/three seals/open states, updated controls and native five-chamber victory. Checked framing, authored ruby/mirror assets, visible spike extension and state rails, active timers after seals, ruby-controlled retraction, open arches, HUD margins and zero-respawn victory.
+Inspected current captures: `countdown.png` (Level 1 numeral 3), `transition-level2.png` (gold title on fully black screen), `ranger-death.png` (skeletal collapsed pose), `ranger-protected.png` (partial transparency), all three `level4-spikes-*.png` and all three `level5-spikes-*.png`, and `native-victory.png` (five chambers, zero respawns). Checked pose, opacity, stone materials, complete colored outlines, warning studs, raised spike contrast, title alignment and HUD bounds. Additional normal/solved campaign and asset views are available in the same directory. The earlier committed gallery in `docs/screenshots` remains as the previous milestone record.
 
-- [The Gauntlet](screenshots/level4.png), [solved](screenshots/level4-open.png), [safe](screenshots/level4-spikes-safe.png), [warning](screenshots/level4-spikes-warning.png), [extended](screenshots/level4-spikes-extended.png).
-- [The Final Trial](screenshots/level5.png), [solved](screenshots/level5-open.png), [safe](screenshots/level5-spikes-safe.png), [warning](screenshots/level5-spikes-warning.png), [extended](screenshots/level5-spikes-extended.png).
-- [Native Gauntlet open](screenshots/native-level4-open.png), [Final Trial first seal](screenshots/native-level5-ruby1.png), [second seal](screenshots/native-level5-ruby2.png), [third seal](screenshots/native-level5-ruby3.png), [open](screenshots/native-level5-open.png), [five-chamber victory](screenshots/native-victory.png).
+New headless `gameplay_flow` coverage includes countdown number order, frozen movement/mirrors/hazards, held input gating, paused clocks, death/respawn order and spawn, protection start/expiry, hazard immunity, one counter increment per death, preserved puzzle state, immediate reset, restart, metadata-driven transition ordering and fifth-level victory. Existing campaign movement tests now wait through real entry/fade/title phases rather than bypassing them. Native GLFW replay additionally holds W/E during countdown and for twelve frames after GO, verifies no unintended action, releases, and then completes the entire campaign.
 
 ## Presentation and limits
 
-Launch `build-desktop/presentation/Play.cmd`. The package contains all five level files, original assets/audio/animations, compiler runtime DLLs, shaders, updated instructions, screenshots and verification documents. Standalone verification passed from the documentation directory with only Windows directories on PATH: menu and solved Levels 4/5 exited cleanly with `GL=0`; the packaged executable also completed the entire native five-level keyboard replay, including timed pause verification, with zero respawns and `GL=0`.
+Launch `build-desktop/presentation/Play.cmd`. The package contains all five level files, original assets/audio/animations, compiler runtime DLLs, shaders, updated instructions, screenshots and verification documents. Standalone polish verification passed from the documentation directory with only Windows directories on PATH: countdown, Level 2 title, death and protected-Ranger views exited cleanly with `GL=0`; the packaged executable also completed the entire native five-level keyboard replay, including countdown held-key checks and timed pause verification, with zero respawns and `GL=0`.
 
 No known blocking failure remains in the tested campaign. Native replay is automated control-path verification, not a new human playthrough. Physical speaker audibility, subjective difficulty, alternate keyboard layouts and other GPUs/operating systems remain unverified. The old reported crash popup still has no correlated original dump; the earlier controlled null-read reconstruction and repair remain documented in [crash investigation](CRASH_INVESTIGATION.md).

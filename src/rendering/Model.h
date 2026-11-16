@@ -13,7 +13,8 @@ public:
 
     bool load(const std::string& filePath, bool retainSkin = false);
     bool loadAnimations(const std::string& idleFile, const std::string& walkFile);
-    bool animate(float seconds, bool walking);
+    bool animate(float seconds, bool walking, bool dying=false);
+    bool hasDeathAnimation() const;
 
     // Draw every mesh in the model.
     void draw(unsigned int shaderProgram) const;

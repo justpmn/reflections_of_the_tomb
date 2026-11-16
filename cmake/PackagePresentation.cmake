@@ -32,5 +32,9 @@ file(COPY "${SOURCE}/docs/PLAYING.md" "${SOURCE}/docs/THIRD_PARTY_AUDIO.md"
     "${SOURCE}/docs/INTEGRATION_STATUS.md" "${SOURCE}/docs/PUZZLE_VERIFICATION.md" DESTINATION "${DESTINATION}")
 file(COPY "${SOURCE}/docs/CRASH_INVESTIGATION.md" "${SOURCE}/docs/diagnostics" DESTINATION "${DESTINATION}")
 file(COPY "${SOURCE}/docs/screenshots" DESTINATION "${DESTINATION}")
+# Local validation captures stay out of Git but may accompany the presentation.
+if(DEFINED VERIFICATION_CAPTURES AND EXISTS "${VERIFICATION_CAPTURES}")
+    file(COPY "${VERIFICATION_CAPTURES}/" DESTINATION "${DESTINATION}/screenshots")
+endif()
 file(WRITE "${DESTINATION}/Play.cmd" "@echo off\r\ncd /d \"%~dp0\"\r\nreflections_of_the_tomb.exe\r\n")
 message(STATUS "Presentation build ready: ${DESTINATION}")

@@ -14,6 +14,16 @@ public:
     bool restart();
     bool reset();
     void update(float x, float z, float dt);
+    enum class Phase { Countdown, Playing, FadeOut, Title, FadeIn, Victory };
+    enum class CharacterState { Alive, Dying, Respawning, Invulnerable };
+    Phase phase = Phase::Countdown;
+    CharacterState characterState = CharacterState::Alive;
+    float phaseTime=0, characterTime=0;
+    bool fellInPit=false, paused=false;
+    unsigned int entrySerial=0;
+    bool controlsEnabled() const;
+    float characterOpacity() const;
+    std::string countdownLabel() const;
     void trace();
     int nearbyMirror() const;
     bool rotate(float degrees);
@@ -32,5 +42,5 @@ public:
     std::vector<player3d::ObstacleXZ> obstacles;
     float doorLift = 0;
 private:
-    bool initializeLevel();
+    bool initializeLevel(bool countdown=false);
 };

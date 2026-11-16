@@ -20,6 +20,10 @@ struct ControlReplay::State {
     int tick=0,level=-1,cursor=0,boot=0,fineFrames=0;
     bool done=false,walkingExit=false;
     bool resetRequested=false,resetExercised=false;
+    bool countdownProbeStarted=false,countdownInputDone=false;
+    int heldGoFrames=0;
+    player3d::PositionXZ countdownPosition{};
+    float countdownAngle=0,countdownPauseTime=0;
     int timedPauseTick=0;
     bool timedPauseDone=false,timedPauseStarted=false;
     std::vector<double> pausedPhases;
@@ -95,11 +99,19 @@ void ControlReplay::beforePoll(GLFWwindow* window,const GameSession& game,GameSc
     if(s.boot<8) {
         if(s.boot==0)wanted.insert(GLFW_KEY_ENTER);
         if(s.boot==2||s.boot==5)wanted.insert(GLFW_KEY_ESCAPE);
-        if(s.boot==3){wanted.insert(GLFW_KEY_W);s.pausePosition=game.player.position();}
+        if(s.boot==3){wanted.insert(GLFW_KEY_W);s.pausePosition=game.player.position();s.countdownPauseTime=game.phaseTime;}
         if(s.boot==6)wanted.insert(GLFW_KEY_R);
         s.keys(window,wanted);return;
     }
+    if(!s.countdownInputDone){
+        if(!s.countdownProbeStarted){s.countdownProbeStarted=true;s.countdownPosition=game.player.position();s.countdownAngle=game.mirrors[0].getAngle();}
+        if(game.phase==GameSession::Phase::Playing&&s.heldGoFrames>=12){s.countdownInputDone=true;s.keys(window,{});return;}
+        s.keys(window,{GLFW_KEY_W,GLFW_KEY_E});return;
+    }
     if(game.victory){s.keys(window,{});return;}
+    if(game.phase!=GameSession::Phase::Playing){
+        s.keys(window,{});return;
+    }
     if(game.levels.index()==3&&!s.timedPauseDone) {
         if(s.timedPauseTick==0){s.timedPauseStarted=true;s.pausedPhases.clear();for(const auto& t:game.traps)s.pausedPhases.push_back(t.cyclePosition());}
         if(s.timedPauseTick==0||s.timedPauseTick==12)wanted.insert(GLFW_KEY_ESCAPE);
@@ -151,9 +163,16 @@ void ControlReplay::afterInput(GLFWwindow* window,const GameSession& game,GameSc
         if(s.boot==0)State::require(screen==GameScreen::Play,"native Enter did not start game");
         if(s.boot==2||s.boot==3)State::require(screen==GameScreen::Pause,"native Escape did not pause");
         if(s.boot==3)State::require(game.player.position().x==s.pausePosition.x&&game.player.position().z==s.pausePosition.z,"paused native WASD moved the player");
+        if(s.boot==3)State::require(game.phaseTime==s.countdownPauseTime,"native pause advanced countdown");
         if(s.boot==5)State::require(screen==GameScreen::Play,"native Escape did not resume");
         if(s.boot==6)for(const auto& ruby:game.rubies)State::require(!ruby.isActivated(),"native R did not reset chamber");
         ++s.boot;return;
+    }
+    if(s.countdownProbeStarted&&!s.countdownInputDone){
+        const auto p=game.player.position();
+        State::require(p.x==s.countdownPosition.x&&p.z==s.countdownPosition.z&&game.mirrors[0].getAngle()==s.countdownAngle,"held countdown input leaked through GO");
+        if(game.phase==GameSession::Phase::Playing){++s.heldGoFrames;if(s.heldGoFrames==12)std::cout<<"NATIVE COUNTDOWN HELD INPUT AND PAUSE VERIFIED\n";}
+        return;
     }
     if(game.levels.index()==3&&s.timedPauseStarted&&!s.timedPauseDone) {
         if(s.timedPauseTick<12) {

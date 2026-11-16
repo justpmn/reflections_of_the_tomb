@@ -3,6 +3,7 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include "gameplay/GameSession.h"
+#include "gameplay/GameplayInputGate.h"
 #include "rendering/TempleScene.h"
 #include "rendering/GameUI.h"
 #include "Audio.h"
@@ -57,6 +58,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
         return 4;
     }
     if(preview>0) { if(!game.levels.loadIndex(preview) || !game.reset()) return 4; }
+    if(smoke&&view!="countdown") {for(int i=0;i<75&&game.phase!=GameSession::Phase::Playing;++i)game.update(0,0,.05f);}
     if(smoke&&solvedPreview) {
         const auto& level=game.levels.current();
         for(size_t i=0;i<game.mirrors.size();++i) game.mirrors[i].setAngle(level.mirrors[i].solutionDeg);
@@ -76,6 +78,16 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             if(view=="spikes-extended")game.traps[i].update(spec.safeSeconds+spec.warningSeconds+.6f);
         }
     }
+    if(smoke&&view=="countdown"){game.phase=GameSession::Phase::Countdown;game.phaseTime=.25f;}
+    if(smoke&&view=="transition"){game.phase=GameSession::Phase::Title;game.phaseTime=.5f;}
+    if(smoke&&(view=="death"||view=="invulnerable")){
+        if(!game.traps.empty()){
+            const auto p=game.levels.current().cellCenterXZ(game.levels.current().traps[0].cell);
+            game.player=player3d::PlayerMovement3D({p.x,p.y});game.update(0,0,.016f);
+        }
+        if(view=="death")game.characterTime=.62f;
+        else {for(int i=0;i<25;++i)game.update(0,0,.05f);game.characterTime=.16f;}
+    }
     Audio audio; audio.music();
     GameUI ui(renderer);
     if(!ui.ready()) {std::cerr<<"UI atlas/shader load failed\n";return 7;}
@@ -88,6 +100,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
     double last=glfwGetTime(),lastSound=0,lastStep=0;
     int frames=0;
     float animationTime=0;
+    GameplayInputGate inputGate;unsigned int announcedEntry=0;
     float cameraZoom=1.f;
     ScrollBinding scrollBinding{window};
     glfwSetWindowUserPointer(window,&cameraZoom);
@@ -118,12 +131,15 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
         }
         if(screen==Screen::Start&&pressed(GLFW_KEY_ENTER)) {
             game.restart();screen=Screen::Play;
-            audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
         }
+        game.paused=screen!=Screen::Play;
         if(screen==Screen::Play) {
-            if(pressed(GLFW_KEY_R)) { game.reset(); audio.effect("Player/respawn.wav"); }
+            if(game.phase==GameSession::Phase::Playing&&pressed(GLFW_KEY_R)) { game.reset(); audio.effect("Player/respawn.wav"); }
             const bool wasSolved=game.solved(); const int deaths=game.deaths,level=game.levels.index();
-            if(down(GLFW_KEY_Q) || down(GLFW_KEY_E)) {
+            const auto priorCharacter=game.characterState;
+            const bool held=down(GLFW_KEY_W)||down(GLFW_KEY_A)||down(GLFW_KEY_S)||down(GLFW_KEY_D)||down(GLFW_KEY_Q)||down(GLFW_KEY_E);
+            const bool accept=inputGate.allow(game.controlsEnabled(),held);
+            if(accept&&(down(GLFW_KEY_Q) || down(GLFW_KEY_E))) {
                 const float direction=float(down(GLFW_KEY_E))-float(down(GLFW_KEY_Q));
                 const float speed=down(GLFW_KEY_LEFT_SHIFT)?10.f:45.f;
                 if(game.rotate(direction*speed*dt) && now-lastSound>.4) {
@@ -132,8 +148,8 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             }
             std::vector<Trap::State> trapStates;
             for(const auto& trap:game.traps)trapStates.push_back(trap.state());
-            game.update(float(down(GLFW_KEY_D))-float(down(GLFW_KEY_A)),
-                        float(down(GLFW_KEY_S))-float(down(GLFW_KEY_W)),dt);
+            game.update(accept?float(down(GLFW_KEY_D))-float(down(GLFW_KEY_A)):0,
+                        accept?float(down(GLFW_KEY_S))-float(down(GLFW_KEY_W)):0,dt);
             if(level==game.levels.index()) {
                 bool warning=false,extend=false,retract=false;
                 for(size_t i=0;i<game.traps.size();++i) {
@@ -148,11 +164,13 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
                 audio.effect("Ruby and Pedestal Sounds/permanent_ruby_sealing.wav");
                 audio.effect("Temple doors and traps/stone_door_opening_and_closing.ogg");
             }
-            if(game.player.isMoving() && now-lastStep>.45) {
+            if(game.controlsEnabled()&&game.player.isMoving() && now-lastStep>.45) {
                 audio.effect("Player/stone_footsteps.wav");lastStep=now;
             }
-            if(deaths!=game.deaths) audio.effect("Player/respawn.wav");
-            if(level!=game.levels.index()) audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
+            if(deaths!=game.deaths) audio.effect("Player/player_defeat.wav");
+            if(priorCharacter==GameSession::CharacterState::Dying&&game.characterState==GameSession::CharacterState::Respawning)audio.effect("Player/respawn.wav");
+            if(smoke&&view=="invulnerable")game.characterTime=.16f;
+            if(smoke&&view=="death")game.characterTime=.62f;
             if(game.victory) screen=Screen::Victory;
         }
         if(replay) {
@@ -170,6 +188,9 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
         auto eye=center+glm::vec3(span*.06f,span*.68f,span*.82f)*framing;
         if(smoke&&view=="ruby") {center=l.cellCenter(l.rubies[0].cell,1.f);eye=center+glm::vec3(2.5f,2.6f,4.f);}
         if(smoke&&view=="door") {center=l.cellCenter(l.doors[0].cell,1.8f);eye=center+glm::vec3(4.f,3.f,7.f);}
+        if(smoke&&(view=="death"||view=="invulnerable")){
+            const auto p=game.player.position();center={p.x,.6f,p.z};eye=center+glm::vec3(2.6f,2.4f,4.f);
+        }
         if(view.empty()) {
             // Fit the projected temple (including the door arch) within the area
             // between the HUD bands, for the current framebuffer aspect ratio.
@@ -199,7 +220,7 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             eye=center+direction*far*cameraZoom;
         }
         renderer.setCamera(eye,center,float(width)/height);
-        if(screen==Screen::Play) animationTime+=dt;
+        if(screen==Screen::Play&&game.controlsEnabled()) animationTime+=dt;
         renderer.beginFrame(); scene.draw(renderer,game,smoke?frames*.12f:animationTime,smoke&&frames>=4);
         glDisable(GL_DEPTH_TEST);
         if(screen==Screen::Play) {
@@ -231,7 +252,6 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
                 ui.text("SELECT AN OPTION",-.85f,.31f,1.f,.55f,.64f,.73f);
                 if(button("START GAME  /  ENTER",.10f)) {
                     game.restart();screen=Screen::Play;
-                    audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
                 }
                 if(button("CONTROLS",-.08f)) {back=screen;screen=Screen::Controls;}
                 if(button("QUIT",-.26f)) glfwSetWindowShouldClose(window,1);
@@ -261,6 +281,27 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
                 if(button("PLAY AGAIN",-.28f)) {game.restart();screen=Screen::Play;}
                 if(button("MAIN MENU",-.46f)) screen=Screen::Start;
             }
+        }
+        if(screen==Screen::Play) {
+            if(game.phase==GameSession::Phase::Countdown&&announcedEntry!=game.entrySerial){
+                announcedEntry=game.entrySerial;audio.effect("Menu and interface sounds/confirmation_or_start game.wav");
+            }
+            using Phase=GameSession::Phase;
+            if(game.phase==Phase::Countdown){
+                ui.panel(-.18f,-.14f,.36f,.40f);
+                ui.centeredText(game.countdownLabel(),.18f,4.6f,1,.82f,.37f);
+                ui.centeredText("GET READY",-.20f,1.2f);
+            }
+            if(game.phase==Phase::FadeOut||game.phase==Phase::Title||game.phase==Phase::FadeIn){
+                const float alpha=game.phase==Phase::FadeOut?std::min(1.f,game.phaseTime/.45f):game.phase==Phase::FadeIn?std::max(0.f,1.f-game.phaseTime/.45f):1.f;
+                renderer.drawRectangle(-1,-1,2,2,0,0,0,alpha);
+                if(game.phase!=Phase::FadeOut){
+                    ui.centeredText("LEVEL "+std::to_string(game.levels.index()+1),.24f,1.6f,.75f,.62f,.34f);
+                    ui.centeredText(l.name,.06f,2.8f,1,.86f,.53f);
+                }
+            }
+            if(game.characterState==GameSession::CharacterState::Dying)ui.centeredText("FALLEN",.12f,1.8f,.95f,.54f,.37f);
+            else if(game.characterState==GameSession::CharacterState::Invulnerable)ui.centeredText("PROTECTED",-.68f,.95f,.45f,.85f,.8f);
         }
         if(replay) {
             const auto name=replay->takeCapture();

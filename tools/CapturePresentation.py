@@ -1,7 +1,10 @@
 """Render real OpenGL validation captures and encode their RGB readback as PNG."""
-import pathlib,subprocess,struct,zlib
+import pathlib,subprocess,struct,zlib,argparse
 root=pathlib.Path(__file__).resolve().parents[1]
-output=root/'docs/screenshots'
+parser=argparse.ArgumentParser()
+parser.add_argument('--output',default='docs/screenshots')
+options=parser.parse_args()
+output=root/options.output
 output.mkdir(parents=True,exist_ok=True)
 exe=root/'build-desktop/reflections_of_the_tomb.exe'
 def chunk(tag,data):
@@ -13,6 +16,7 @@ def convert(ppm,png):
  rows=b''.join(b'\0'+data[y*w*3:(y+1)*w*3] for y in range(h))
  png.write_bytes(b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(rows,6))+chunk(b'IEND',b''))
 cases=[('menu',['--screen','start'])]
+cases += [('countdown',['--view','countdown']),('transition-level2',['--level','2','--view','transition']),('ranger-death',['--level','2','--view','death']),('ranger-protected',['--level','2','--view','invulnerable'])]
 for level in range(1,6):
  cases += [(f'level{level}',['--level',str(level)]),(f'level{level}-open',['--level',str(level),'--solved'])]
 for level in [4,5]:

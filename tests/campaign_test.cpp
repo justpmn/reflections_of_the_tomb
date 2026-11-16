@@ -1,4 +1,5 @@
 #include "gameplay/GameSession.h"
+#include "SessionTestHelpers.h"
 #include "world/WorldMetrics.h"
 #include <iostream>
 #include <stdexcept>
@@ -45,7 +46,7 @@ void walkTo(GameSession& g, glm::ivec2 goal, bool expectExit=false) {
             if(trap>=0&&g.traps[trap].isTimed()&&current!=cell&&!g.traps[trap].safeToCross(1.15)) {g.update(0,0,.016f);continue;}
             delta=glm::normalize(delta);
             g.update(delta.x,delta.y,.016f);
-            if(g.victory||g.levels.index()!=level) return;
+            if(g.victory||g.levels.index()!=level||g.phase!=GameSession::Phase::Playing){finishEntry(g);return;}
         }
         if(!arrived) {const auto pos=g.player.position();std::cerr<<"route stalled level "<<level+1<<" goal "<<cell.x<<","<<cell.y<<" position "<<pos.x<<","<<pos.z<<" deaths "<<g.deaths<<'\n';}
         require(arrived,"Player collision unexpectedly blocks route to exit");
@@ -56,7 +57,7 @@ void walkTo(GameSession& g, glm::ivec2 goal, bool expectExit=false) {
 int main(int argc,char** argv) {
     const float phaseOffset=argc>1?std::strtof(argv[1],nullptr):0;
     try {
-        GameSession g(LEVELS_DIR); require(g.restart(),"Load campaign");
+        GameSession g(LEVELS_DIR); require(g.restart(),"Load campaign");finishEntry(g);
         require(!g.rotate(10),"Remote mirror interaction must be rejected");
         for(int level=0;level<5;++level) {
             require(g.levels.index()==level,"Campaign progression order");
@@ -118,7 +119,7 @@ int main(int argc,char** argv) {
         const auto spike=l.cellCenterXZ(l.traps[0].cell);
         // Test fixture places the player on a hazard; gameplay must respawn at the authored spawn.
         g.player=player3d::PlayerMovement3D({spike.x,spike.y});g.update(0,0,.016f);
-        require(g.deaths==1,"Active spikes cause respawn");
+        require(g.deaths==1&&g.characterState==GameSession::CharacterState::Dying,"Active spikes begin death");finishRespawn(g);
         const auto spawn=l.cellCenterXZ(l.playerSpawn);
         require(glm::length(glm::vec2(g.player.position().x,g.player.position().z)-spawn)<.01f,"Hazard respawn uses level spawn");
         glm::ivec2 pitCell(-1);

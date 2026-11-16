@@ -34,7 +34,7 @@ public:
     void drawModel(
         const Model& model,
         const glm::mat4& modelMatrix,
-        const glm::vec3& color, float glow=0);
+        const glm::vec3& color, float glow=0, float opacity=1);
 
     void drawModelMesh(
         const Model& model,

@@ -633,6 +633,7 @@ add_custom_target(presentation_build
         "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DEXECUTABLE=$<TARGET_FILE:reflections_of_the_tomb>"
         "-DDESTINATION=${CMAKE_CURRENT_BINARY_DIR}/presentation"
+        "-DVERIFICATION_CAPTURES=${CMAKE_CURRENT_BINARY_DIR}/polish-screenshots"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackagePresentation.cmake"
     DEPENDS reflections_of_the_tomb VERBATIM)
 if(ENABLE_RENDER_SMOKE_TESTS)
@@ -695,5 +696,21 @@ if(ENABLE_RENDER_SMOKE_TESTS)
             add_test(NAME render_level_${level}_spikes_${state} COMMAND reflections_of_the_tomb --smoke --level ${level} --view spikes-${state})
             set_tests_properties(render_level_${level}_spikes_${state} PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 30)
         endforeach()
+    endforeach()
+endif()
+
+add_executable(gameplay_flow_test tests/gameplay_flow_test.cpp)
+target_link_libraries(gameplay_flow_test PRIVATE campaign)
+target_compile_definitions(gameplay_flow_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME gameplay_flow COMMAND gameplay_flow_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    foreach(view countdown transition death invulnerable)
+        if(view STREQUAL "transition" OR view STREQUAL "death" OR view STREQUAL "invulnerable")
+            set(preview_level 2)
+        else()
+            set(preview_level 1)
+        endif()
+        add_test(NAME render_polish_${view} COMMAND reflections_of_the_tomb --smoke --level ${preview_level} --view ${view})
+        set_tests_properties(render_polish_${view} PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 30)
     endforeach()
 endif()

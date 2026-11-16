@@ -32,7 +32,8 @@ public:
         return glm::scale(m,glm::vec3(scale));
     }
     void draw(Renderer& r,const GameSession& g,float time,bool animateWalk=false) {
-        if(animated && !ranger.animate(time,g.player.isMoving()||animateWalk)) {
+        const bool dying=g.characterState==GameSession::CharacterState::Dying;
+        if(animated && !ranger.animate(dying?g.characterTime:time,!dying&&(g.player.isMoving()||animateWalk),dying)) {
             animated=false;ranger.load("assets/models/characters/ranger/Ranger.glb");
         }
         const auto& l=g.levels.current();const float cs=l.cellSize;
@@ -159,16 +160,30 @@ public:
             for(unsigned int mesh=0;mesh<spike.getMeshCount();++mesh) {
                 const bool spikes=spike.meshName(mesh)=="spikes";
                 auto mat=place(p+glm::vec3(0,-.025f+(spikes?g.traps[i].extension()*.85f:0),0),cs/4);
-                r.drawModelMesh(spike,mesh,mat,glm::vec3(1),0,spikes?0.f:-1000.f);
+                r.drawModelMesh(spike,mesh,mat,spikes?glm::vec3(.48f,.56f,.68f):glm::vec3(1),0,spikes?0.f:-1000.f);
             }
             if(g.traps[i].isTimed()) {
                 const auto state=g.traps[i].state();
                 const glm::vec3 color=state==Trap::State::Warning?glm::vec3(1,.55f,.08f):state==Trap::State::Extended?glm::vec3(.9f,.22f,.08f):glm::vec3(.20f,.75f,.65f);
-                for(float x:{-.68f,.68f})r.drawBeam(p+glm::vec3(x,.065f,-.7f),p+glm::vec3(x,.065f,.7f),color,.065f,.7f);
+                const float pulse=state==Trap::State::Warning?.70f+.30f*std::sin(float(g.traps[i].cyclePosition())*14):1.f;
+                const glm::vec3 points[]={{p.x-.88f,.065f,p.z-.88f},{p.x+.88f,.065f,p.z-.88f},{p.x+.88f,.065f,p.z+.88f},{p.x-.88f,.065f,p.z+.88f}};
+                for(int edge=0;edge<4;++edge){
+                    const auto start=points[edge],end=points[(edge+1)%4];
+                    const auto size=edge%2?glm::vec3(.08f,.055f,1.76f):glm::vec3(1.76f,.055f,.08f);
+                    r.drawBox((start+end)*.5f,size,color*pulse);
+                    r.drawBeam(start,end,color,.035f,.18f*pulse);
+                }
+                if(state==Trap::State::Warning)for(float x:{-.66f,.66f}) {
+                    const float lift=.08f+.07f*(1.f+std::sin(float(g.traps[i].cyclePosition())*14));
+                    r.drawBox(p+glm::vec3(x,lift,0),{.16f,lift,.16f},{.65f,.40f,.12f});
+                }
             }
         }
         const auto p=g.player.position(),f=g.player.facing();
-        r.drawModel(ranger,place({p.x,.002f,p.z},metrics::rangerScale,std::atan2(f.x,f.z)),glm::vec3(1));
+        auto character=place({p.x,.002f,p.z},metrics::rangerScale,std::atan2(f.x,f.z));
+        if(dying&&g.fellInPit)character=glm::translate(character,glm::vec3(0,-g.characterTime*g.characterTime*2.f,0));
+        else if(dying&&!ranger.hasDeathAnimation())character=glm::rotate(character,g.characterTime*1.4f,glm::vec3(1,0,0));
+        r.drawModel(ranger,character,glm::vec3(1),0,g.characterOpacity());
         // Thin bright core and a wider translucent gold shell; depth-tested in 3D.
         r.drawBeamSegments(g.beams,{1,.48f,.055f},.10f,.08f);
         r.drawBeamSegments(g.beams,{1,.68f,.15f},.035f,.46f);

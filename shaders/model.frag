@@ -16,6 +16,7 @@ uniform vec3 uMaterialEmissive;
 uniform float uRoughness;
 uniform float uMetallic;
 uniform float uGlow;
+uniform float uInstanceOpacity=1.0;
 uniform int uAlphaMode;
 uniform float uAlphaCutoff;
 uniform vec3 uLightDirection;
@@ -57,5 +58,5 @@ void main() {
     vec3 display=pow(max(light,vec3(0)),vec3(1.0/2.2));
     float atmosphere=clamp(1.0-exp(-length(uViewPos-FragPos)*.0025),0.0,.18);
     display=mix(display,vec3(.12,.16,.25),atmosphere);
-    FragColor=vec4(display,uAlphaMode==2?base.a:1.0);
+    FragColor=vec4(display,(uAlphaMode==2?base.a:1.0)*uInstanceOpacity);
 }
