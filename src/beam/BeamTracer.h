@@ -28,6 +28,7 @@ struct BeamTraceResult
 {
     std::vector<BeamSegment> path;
     int hitRubyIndex = -1;
+    std::vector<std::size_t> reflectedMirrorIndices;
 };
 
 class BeamTracer

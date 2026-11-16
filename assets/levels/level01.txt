@@ -1,13 +1,13 @@
 // Level 1 - teaches: rotate ONE mirror to light a ruby and open the door.
 name: The Entrance Hall
 cell_size: 2.0
-wall_height: 3.0
+wall_height: 2.0
 grid:
 #########
 #.....R.#
 #L....M.#
 #.......#
-#..S....#
+#P.S...P#
 #.......#
 ####D####
 end

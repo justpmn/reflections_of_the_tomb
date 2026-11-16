@@ -7,6 +7,9 @@
 #include <cmath>
 #include <algorithm>
 #include <cstring>
+#include <functional>
+#include <unordered_map>
+#include <unordered_set>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -45,37 +48,16 @@ namespace
         const cgltf_float matrix[16],
         float normal[3])
     {
-        const float x = normal[0];
-        const float y = normal[1];
-        const float z = normal[2];
-
-        normal[0] =
-            matrix[0] * x + matrix[4] * y + matrix[8] * z;
-
-        normal[1] =
-            matrix[1] * x + matrix[5] * y + matrix[9] * z;
-
-        normal[2] =
-            matrix[2] * x + matrix[6] * y + matrix[10] * z;
-
-        const float length = std::sqrt(
-            normal[0] * normal[0] +
-            normal[1] * normal[1] +
-            normal[2] * normal[2]
-        );
-
-        if (length > 0.00001f)
-        {
-            normal[0] /= length;
-            normal[1] /= length;
-            normal[2] /= length;
-        }
+        const glm::mat3 normalMatrix=glm::transpose(glm::inverse(glm::mat3(glm::make_mat4(matrix))));
+        const auto value=glm::normalize(normalMatrix*glm::make_vec3(normal));
+        std::copy(glm::value_ptr(value),glm::value_ptr(value)+3,normal);
     }
 
     unsigned int loadTexture(
-        const cgltf_image* sourceImage,
+        const cgltf_texture* sourceTexture,
         const std::filesystem::path& modelDirectory)
     {
+        const cgltf_image* sourceImage=sourceTexture?sourceTexture->image:nullptr;
         if (!sourceImage)
             return 0;
 
@@ -96,7 +78,7 @@ namespace
                 &width,
                 &height,
                 &channels,
-                0
+                4
             );
 
             if (!imageData)
@@ -134,7 +116,7 @@ namespace
                 &width,
                 &height,
                 &channels,
-                0
+                4
             );
 
             if (!imageData)
@@ -152,6 +134,7 @@ namespace
             return 0;
         }
 
+        channels=4; // Decode every source to RGBA; handles grayscale+alpha safely.
         GLenum format = GL_RGB;
 
         if (channels == 1)
@@ -171,7 +154,7 @@ namespace
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
-            format,
+            channels==4?GL_SRGB8_ALPHA8:(channels==3?GL_SRGB8:GL_R8),
             width,
             height,
             0,
@@ -206,6 +189,13 @@ namespace
             GL_LINEAR
         );
 
+        if(sourceTexture->sampler) {
+            const auto& sampler=*sourceTexture->sampler;
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,sampler.wrap_s);
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,sampler.wrap_t);
+            if(sampler.min_filter) glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,sampler.min_filter);
+            if(sampler.mag_filter) glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,sampler.mag_filter);
+        }
         glBindTexture(GL_TEXTURE_2D, 0);
 
         stbi_image_free(imageData);
@@ -275,13 +265,14 @@ bool Model::load(const std::string& filePath, bool retainSkin)
     const std::filesystem::path modelDirectory =
         std::filesystem::path(filePath).parent_path();
 
-    stbi_set_flip_vertically_on_load(true);
+    stbi_set_flip_vertically_on_load(false);
     if (retainSkin) {
         animation=new AnimationState;
         animation->model=data;
         animation->rest.assign(data->nodes,data->nodes+data->nodes_count);
     }
 
+    std::unordered_map<const cgltf_texture*,GLuint> textureCache;
     // Process a mesh using the world transformation of its node.
     auto processMesh = [&](const cgltf_mesh* sourceMesh,
                            const cgltf_float worldMatrix[16], const cgltf_skin* skin)
@@ -317,11 +308,11 @@ bool Model::load(const std::string& filePath, bool retainSkin)
                 if (attribute.type == cgltf_attribute_type_normal)
                     normals = attribute.data;
 
-                if (attribute.type == cgltf_attribute_type_texcoord)
+                if (attribute.type == cgltf_attribute_type_texcoord && attribute.index==0)
                     texCoords = attribute.data;
                 if (attribute.type == cgltf_attribute_type_joints) joints=attribute.data;
                 if (attribute.type == cgltf_attribute_type_weights) weights=attribute.data;
-                if (attribute.type == cgltf_attribute_type_color) colors=attribute.data;
+                if (attribute.type == cgltf_attribute_type_color && attribute.index==0) colors=attribute.data;
             }
 
             if (!positions)
@@ -409,23 +400,41 @@ bool Model::load(const std::string& filePath, bool retainSkin)
                 }
             }
 
+            if(glm::determinant(glm::make_mat4(worldMatrix))<0)
+                for(size_t i=0;i+2<indices.size();i+=3) std::swap(indices[i+1],indices[i+2]);
             if (vertices.empty() || indices.empty())
                 continue;
             if(!normals) {
-                std::vector<glm::vec3> computed(vertices.size()/8,glm::vec3(0));
+                // glTF specifies flat face normals when NORMAL is absent. Split
+                // shared vertices rather than smoothing unrelated stone faces.
+                std::vector<float> flat,flatColors;std::vector<unsigned int> flatIndices;
                 for(size_t i=0;i+2<indices.size();i+=3) {
                     const auto a=indices[i],b=indices[i+1],c=indices[i+2];
-                    const auto n=glm::cross(glm::make_vec3(&vertices[b*8])-glm::make_vec3(&vertices[a*8]),
-                                           glm::make_vec3(&vertices[c*8])-glm::make_vec3(&vertices[a*8]));
-                    computed[a]+=n;computed[b]+=n;computed[c]+=n;
+                    const auto cross=glm::cross(glm::make_vec3(&vertices[b*8])-glm::make_vec3(&vertices[a*8]),
+                                               glm::make_vec3(&vertices[c*8])-glm::make_vec3(&vertices[a*8]));
+                    const auto n=glm::length(cross)>.000001f?glm::normalize(cross):glm::vec3(0,1,0);
+                    for(int k=0;k<3;++k) {
+                        const auto index=indices[i+k];
+                        flatIndices.push_back(static_cast<unsigned int>(flat.size()/8));
+                        flat.insert(flat.end(),vertices.begin()+index*8,vertices.begin()+index*8+8);
+                        std::copy(glm::value_ptr(n),glm::value_ptr(n)+3,flat.end()-5);
+                        if(!vertexColors.empty()) flatColors.insert(flatColors.end(),vertexColors.begin()+index*4,vertexColors.begin()+index*4+4);
+                    }
                 }
-                for(size_t i=0;i<computed.size();++i) if(glm::length(computed[i])>.00001f) {
-                    const auto n=glm::normalize(computed[i]);
-                    vertices[i*8+3]=n.x;vertices[i*8+4]=n.y;vertices[i*8+5]=n.z;
-                }
+                vertices=std::move(flat);indices=std::move(flatIndices);vertexColors=std::move(flatColors);
             }
 
             Mesh mesh;
+            float largestArea=0;
+            for(size_t t=0;t+2<indices.size();t+=3) {
+                const auto a=glm::make_vec3(&vertices[indices[t]*8]);
+                const auto b=glm::make_vec3(&vertices[indices[t+1]*8]);
+                const auto c=glm::make_vec3(&vertices[indices[t+2]*8]);
+                const auto cross=glm::cross(b-a,c-a);const float area=glm::length(cross);
+                if(area>largestArea) {largestArea=area;mesh.normal=cross/area;}
+            }
+            if(mesh.normal.z<0) mesh.normal=-mesh.normal;
+            mesh.name=sourceMesh->name?sourceMesh->name:"unnamed";
             for(size_t v=0;v<vertices.size();v+=8) {
                 const auto p=glm::make_vec3(&vertices[v]);
                 mesh.minBounds=glm::min(mesh.minBounds,p);mesh.maxBounds=glm::max(mesh.maxBounds,p);
@@ -433,6 +442,12 @@ bool Model::load(const std::string& filePath, bool retainSkin)
             if (primitive.material) {
                 const auto* c = primitive.material->pbr_metallic_roughness.base_color_factor;
                 mesh.baseColor = glm::vec4(c[0],c[1],c[2],c[3]);
+                mesh.roughness=primitive.material->pbr_metallic_roughness.roughness_factor;
+                mesh.metallic=primitive.material->pbr_metallic_roughness.metallic_factor;
+                mesh.emissive=glm::make_vec3(primitive.material->emissive_factor);
+                mesh.alphaMode=static_cast<int>(primitive.material->alpha_mode);
+                mesh.alphaCutoff=primitive.material->alpha_cutoff;
+                mesh.doubleSided=primitive.material->double_sided;
             }
 
             glGenVertexArrays(1, &mesh.VAO);
@@ -500,10 +515,9 @@ bool Model::load(const std::string& filePath, bool retainSkin)
                     primitive.material->pbr_metallic_roughness
                         .base_color_texture.texture;
 
-                mesh.textureID = loadTexture(
-                    texture->image,
-                    modelDirectory
-                );
+                auto found=textureCache.find(texture);
+                if(found!=textureCache.end()) mesh.textureID=found->second;
+                else {mesh.textureID=loadTexture(texture,modelDirectory);textureCache[texture]=mesh.textureID;}
 
                 mesh.hasTexture = mesh.textureID != 0;
             }
@@ -513,49 +527,17 @@ bool Model::load(const std::string& filePath, bool retainSkin)
         }
     };
 
-    // Track meshes that are referenced by scene nodes.
-    std::vector<bool> meshReferenced(data->meshes_count, false);
-
-    // Process every node and its complete world transformation.
-    for (cgltf_size i = 0; i < data->nodes_count; ++i)
-    {
-        const cgltf_node* node = &data->nodes[i];
-
-        if (!node->mesh)
-            continue;
-
-        cgltf_float worldMatrix[16];
-
-        cgltf_node_transform_world(node, worldMatrix);
-
-        const std::ptrdiff_t meshIndex =
-            node->mesh - data->meshes;
-
-        if (meshIndex >= 0 &&
-            static_cast<cgltf_size>(meshIndex) < data->meshes_count)
-        {
-            meshReferenced[meshIndex] = true;
+    // Only traverse nodes in the selected glTF scene, preserving instancing and
+    // parent transforms. Unreferenced library meshes are not visible scene objects.
+    std::function<void(const cgltf_node*)> visit=[&](const cgltf_node* node) {
+        if(node->mesh) {
+            cgltf_float worldMatrix[16];cgltf_node_transform_world(node,worldMatrix);
+            processMesh(node->mesh,worldMatrix,node->skin);
         }
-
-        processMesh(node->mesh, worldMatrix, node->skin);
-    }
-
-    // Support models containing meshes without scene nodes.
-    for (cgltf_size i = 0; i < data->meshes_count; ++i)
-    {
-        if (meshReferenced[i])
-            continue;
-
-        cgltf_float identity[16] =
-        {
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-        };
-
-        processMesh(&data->meshes[i], identity, nullptr);
-    }
+        for(size_t i=0;i<node->children_count;++i) visit(node->children[i]);
+    };
+    if(data->scene) for(size_t i=0;i<data->scene->nodes_count;++i) visit(data->scene->nodes[i]);
+    else for(size_t i=0;i<data->nodes_count;++i) if(!data->nodes[i].parent) visit(&data->nodes[i]);
 
     if (!animation) cgltf_free(data);
 
@@ -582,9 +564,20 @@ void Model::draw(unsigned int shaderProgram) const
     if (!loaded)
         return;
 
-    for (unsigned int i = 0; i < meshes.size(); ++i)
-    {
-        drawMesh(i, shaderProgram);
+    std::vector<unsigned int> translucent;
+    for(unsigned int i=0;i<meshes.size();++i) {
+        if(meshes[i].alphaMode==cgltf_alpha_mode_blend) translucent.push_back(i);
+        else drawMesh(i,shaderProgram);
+    }
+    if(!translucent.empty()) {
+        glm::mat4 model(1),view(1);
+        const auto m=glGetUniformLocation(shaderProgram,"model"),v=glGetUniformLocation(shaderProgram,"view");
+        if(m>=0)glGetUniformfv(shaderProgram,m,glm::value_ptr(model));
+        if(v>=0)glGetUniformfv(shaderProgram,v,glm::value_ptr(view));
+        std::sort(translucent.begin(),translucent.end(),[&](unsigned int a,unsigned int b) {
+            return (view*model*glm::vec4(meshCenter(a),1)).z<(view*model*glm::vec4(meshCenter(b),1)).z;
+        });
+        for(auto i:translucent) drawMesh(i,shaderProgram);
     }
 
     glBindVertexArray(0);
@@ -600,6 +593,15 @@ void Model::drawMesh(
         return;
 
     const Mesh& mesh = meshes[meshIndex];
+    glUniform3fv(glGetUniformLocation(shaderProgram,"uMaterialEmissive"),1,glm::value_ptr(mesh.emissive));
+    glUniform1f(glGetUniformLocation(shaderProgram,"uRoughness"),mesh.roughness);
+    glUniform1f(glGetUniformLocation(shaderProgram,"uMetallic"),mesh.metallic);
+    glUniform1i(glGetUniformLocation(shaderProgram,"uAlphaMode"),mesh.alphaMode);
+    glUniform1f(glGetUniformLocation(shaderProgram,"uAlphaCutoff"),mesh.alphaCutoff);
+    if(mesh.doubleSided) glDisable(GL_CULL_FACE);else {glEnable(GL_CULL_FACE);glCullFace(GL_BACK);}
+    if(mesh.alphaMode==cgltf_alpha_mode_blend) {
+        glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
+    }
     const GLint vertexColorLocation=glGetUniformLocation(shaderProgram,"uHasVertexColor");
     if(vertexColorLocation!=-1) glUniform1i(vertexColorLocation,mesh.hasVertexColor);
     const GLint materialLocation = glGetUniformLocation(shaderProgram, "uMaterialColor");
@@ -641,6 +643,7 @@ void Model::drawMesh(
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
+    glDepthMask(GL_TRUE);glDisable(GL_BLEND);glDisable(GL_CULL_FACE);
 }
 
 // Return the number of meshes in the model.
@@ -654,6 +657,13 @@ glm::vec3 Model::meshCenter(unsigned int i) const {
 glm::vec3 Model::meshSize(unsigned int i) const {
     return meshes.at(i).maxBounds-meshes.at(i).minBounds;
 }
+
+const std::string& Model::meshName(unsigned int i) const { return meshes.at(i).name; }
+int Model::findMesh(const std::string& name) const {
+    for(size_t i=0;i<meshes.size();++i) if(meshes[i].name==name) return static_cast<int>(i);
+    return -1;
+}
+glm::vec3 Model::meshNormal(unsigned int i) const {return meshes.at(i).normal;}
 
 bool Model::loadAnimations(const std::string& idleFile,const std::string& walkFile)
 {
@@ -752,7 +762,7 @@ bool Model::animate(float seconds,bool walking)
             if(total<.001f) continue;
             skin/=total;
             const auto pos=skin*glm::vec4(vertices[v*8],vertices[v*8+1],vertices[v*8+2],1);
-            const auto normal=glm::normalize(glm::mat3(skin)*glm::vec3(vertices[v*8+3],vertices[v*8+4],vertices[v*8+5]));
+            const auto normal=glm::normalize(glm::transpose(glm::inverse(glm::mat3(skin)))*glm::vec3(vertices[v*8+3],vertices[v*8+4],vertices[v*8+5]));
             if(!std::isfinite(pos.x)||!std::isfinite(pos.y)||!std::isfinite(pos.z)) return false;
             vertices[v*8]=pos.x;vertices[v*8+1]=pos.y;vertices[v*8+2]=pos.z;
             vertices[v*8+3]=normal.x;vertices[v*8+4]=normal.y;vertices[v*8+5]=normal.z;
@@ -767,6 +777,7 @@ bool Model::animate(float seconds,bool walking)
 void Model::cleanup()
 {
     delete animation;animation=nullptr;
+    std::unordered_set<unsigned int> deletedTextures;
     for (Mesh& mesh : meshes)
     {
         if(mesh.colorVBO) glDeleteBuffers(1,&mesh.colorVBO);
@@ -779,7 +790,7 @@ void Model::cleanup()
         if (mesh.VAO)
             glDeleteVertexArrays(1, &mesh.VAO);
 
-        if (mesh.textureID)
+        if (mesh.textureID && deletedTextures.insert(mesh.textureID).second)
             glDeleteTextures(1, &mesh.textureID);
     }
 

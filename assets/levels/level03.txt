@@ -1,28 +1,23 @@
-// Level 3 - teaches: two light sources, three mirrors, door needs BOTH rubies.
-// Pits block the direct walk to the east mirror; spikes guard the exit.
 name: The Inner Sanctum
 cell_size: 2.0
-wall_height: 3.5
+wall_height: 2.0
 pit_depth: 2.5
 grid:
 #############
-#L...M..P...#
-#..S........#
-#..P...R...M#
-#....._____.#
-#R...M......#
-#...........#
+#L.......M..#
+#.S...#....P#
+#..R..#.....#
+#.....#.....#
+#..M.....M..#
+#.....#.....#
+#_....#..._.#
+#P.R..#.....#
 #TTTTTTTTTT.#
-#...........#
-#..........L#
 ######D######
 end
-// Light 0 (top-left) -> mirror 0 -> mirror 2 -> ruby 1 (west)
-// Light 1 (bottom-right) -> mirror 1 -> ruby 0 (centre)
 light 0 dir E
-light 1 dir N
 mirror 0 angle -45 solution 45
-mirror 1 angle -45 solution 45
+mirror 1 angle 0 solution 45 alternate -45
 mirror 2 angle 45 solution -45
 traps disabled_by 0
 door 0 needs 0 1

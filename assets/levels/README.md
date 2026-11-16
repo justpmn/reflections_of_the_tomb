@@ -18,13 +18,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure -R level
 .\build\level_preview.exe assets\levels\level03.txt
 ```
-Expected `level_test` summary:
-```
-  The Entrance Hall  (9x7, 194 triangles)
-  Hall of Spikes  (11x9, 330 triangles)
-  The Inner Sanctum  (13x11, 522 triangles)
-All level tests passed
-```
+Expected result: all level loader, coordinate, mirror-convention, geometry and manager tests pass. Triangle counts reflect the current authored baffles and decorations.
 
 ## Level file format
 ```
@@ -40,6 +34,7 @@ grid:
 end
 light  0 dir E                       // N, E, S, W
 mirror 0 angle 45 solution -45       // add "fixed" if it can't rotate
+mirror 1 angle 0 solution 45 alternate -45 // optional sealing sequence
 door   0 needs 0                     // door needs ruby 0 (list several: needs 0 1)
 traps disabled_by 0                  // all traps; or: trap 2 disabled_by 1
 ```
@@ -80,12 +75,12 @@ const world::Level& L = levels.current();
 | **Peter** (beams) | `L.lights[i]` (`world::LightSpawn`): `cell` + `dirToVec(dir)`. Blockers: walls & pillars (colliders), closed doors. Use `mirrorNormal()` so the angle convention matches. |
 | **Jesse** (puzzle) | `L.rubies`, `L.doors[i].needsRubies`, `L.traps[i].disabledByRuby`. Door opens when all needed rubies are lit; trap off when its ruby is lit. On exit: `levels.next()`. |
 
-## The 3 levels
-1. **The Entrance Hall**: 1 mirror, 1 ruby. Teaches rotating a mirror.
-2. **Hall of Spikes**: 2 mirrors in a chain; the ruby also turns off the spike row.
-3. **The Inner Sanctum**: 2 lights, 3 mirrors, 2 rubies; the door needs both. Pits and spikes add hazards.
+## The 3 levels (presentation overhaul)
+1. **The Entrance Hall**: one mirror must turn light north to the ruby.
+2. **Hall of Spikes**: two mirrors turn light south, then west; a real wall baffle blocks the former diagonal shortcut.
+3. **The Inner Sanctum**: one source and three mirrors, reflection order north -> east -> west, around two wall baffles. Set the west mirror to +45 for the north ruby, then -45 for the south ruby. Permanent sealing allows the two-stage solution.
 
-Every mirror starts at the wrong angle (a test checks the puzzle isn't already solved).
+The original loader, team ownership and designs are preserved in Git history. The presentation redesign deliberately replaces the previous two-source last chamber with a stronger sequential three-mirror puzzle. See `docs/PUZZLE_VERIFICATION.md` for continuous-angle necessity proofs, exhaustive real-tracer removal/disable checks and walking-route verification.
 
 ## Graphics concepts used (for the report)
 - **Polygon representation**: the temple is built from quads (2 triangles each) generated from the grid.

@@ -18,6 +18,9 @@ public:
 
     void beginFrame();
     void setCamera(const glm::vec3& eye, const glm::vec3& target, float aspect);
+    void setLights(const std::vector<glm::vec3>& positions,const std::vector<glm::vec3>& colors);
+    void drawShadow(const glm::vec3& position,float radius);
+    void drawBox(const glm::vec3& center,const glm::vec3& size,const glm::vec3& color);
 
     void drawRectangle(
         float x,
@@ -26,35 +29,35 @@ public:
         float height,
         float red,
         float green,
-        float blue);
+        float blue, float alpha=1);
 
     void drawModel(
         const Model& model,
         const glm::mat4& modelMatrix,
-        const glm::vec3& color);
+        const glm::vec3& color, float glow=0);
 
     void drawModelMesh(
         const Model& model,
         unsigned int meshIndex,
         const glm::mat4& modelMatrix,
-        const glm::vec3& color);
+        const glm::vec3& color, float glow=0, float clipFloor=-1000);
 
     void drawGemstone(
         const glm::mat4& transform,
-        const glm::vec3& crystalColor);
+        const glm::vec3& crystalColor, float crystalOffset=0);
 
     // Draw one glowing 3D beam segment.
     void drawBeam(
         const glm::vec3& start,
         const glm::vec3& end,
         const glm::vec3& color,
-        float thickness);
+        float thickness, float intensity=.28f);
 
     // Draw multiple connected beam segments.
     void drawBeamSegments(
         const std::vector<BeamSegment>& segments,
         const glm::vec3& color,
-        float thickness);
+        float thickness, float intensity=.28f);
 
     void shutdown();
 
@@ -88,4 +91,6 @@ private:
 
     glm::mat4 viewMatrix;
     glm::mat4 projectionMatrix;
+    std::vector<glm::vec3> lightPositions,lightColors;
+    void prepareMaterial(float glow);
 };

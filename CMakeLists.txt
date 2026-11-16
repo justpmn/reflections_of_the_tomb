@@ -76,6 +76,7 @@ add_executable(
     reflections_of_the_tomb
     src/main.cpp
     src/core/GameApplication.cpp
+    src/rendering/GameUI.cpp
     src/core/Audio.cpp
     src/gameplay/GameSession.cpp
     src/world/Level.cpp
@@ -637,5 +638,20 @@ if(ENABLE_RENDER_SMOKE_TESTS)
     foreach(screen start pause controls victory)
         add_test(NAME render_${screen} COMMAND reflections_of_the_tomb --smoke --screen ${screen})
         set_tests_properties(render_${screen} PROPERTIES LABELS "render" TIMEOUT 30)
+    endforeach()
+endif()
+add_executable(mandatory_reflection_test tests/mandatory_reflection_test.cpp)
+target_link_libraries(mandatory_reflection_test PRIVATE campaign)
+target_compile_definitions(mandatory_reflection_test PRIVATE LEVELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/levels")
+add_test(NAME mandatory_reflections COMMAND mandatory_reflection_test)
+if(ENABLE_RENDER_SMOKE_TESTS)
+    add_executable(model_asset_test tests/model_asset_test.cpp src/rendering/Model.cpp)
+    target_include_directories(model_asset_test PRIVATE src)
+    target_link_libraries(model_asset_test PRIVATE glfw glad_gl_core_33 glm::glm)
+    add_test(NAME model_asset_contract COMMAND model_asset_test)
+    set_tests_properties(model_asset_contract PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" LABELS render TIMEOUT 30)
+    foreach(level RANGE 1 3)
+        add_test(NAME render_level_${level}_open COMMAND reflections_of_the_tomb --smoke --level ${level} --solved)
+        set_tests_properties(render_level_${level}_open PROPERTIES LABELS render TIMEOUT 30)
     endforeach()
 endif()

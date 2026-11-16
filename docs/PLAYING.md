@@ -7,6 +7,7 @@ Run `Play.cmd` in the repository, or run `reflections_of_the_tomb.exe` in the pr
 | WASD | Move Ranger through the temple |
 | Q / E | Rotate the nearest mirror, within 2.2 world units |
 | Hold left Shift | Fine mirror rotation |
+| Mouse wheel | Zoom the 3D camera |
 | R | Reset current chamber, including rubies and mirror angles |
 | Escape | Pause/resume |
 | M | Mute/unmute all sound |
@@ -21,8 +22,8 @@ Pause offers Resume, Reset Chamber, Controls, Restart Campaign and Main Menu. Co
 Angles describe the reflective surface seen from above: `45` is a backslash; `-45` is a slash. Reach each mirror before rotating it.
 
 1. **The Entrance Hall:** the east mirror turns the eastbound beam north toward the ruby. Rotate from +45 to -45 using Q.
-2. **Hall of Spikes:** set the northern mirror and then the southern mirror to +45 using E. The beam travels east, south, then east to the ruby. Spikes retract and the south exit opens.
-3. **The Inner Sanctum:** set the north mirror to +45, the east mirror to +45, and the southwest mirror to -45. The two emitters seal both rubies. Avoid the pit strip and active spikes while reaching the mirrors; the west side provides a safe route around the pits.
+2. **Hall of Spikes:** set the north mirror to +45 using E and the south mirror to -45 using Q. The beam travels east, south, then west around the stone baffle to the ruby. Spikes retract and the south exit opens.
+3. **The Inner Sanctum:** set the north mirror to +45, the east mirror to -45, and the west mirror to +45. The three-reflection chain seals the north ruby and retracts the spikes. Return to the west mirror and rotate it to -45 to seal the south ruby. Both seals open the exit. Stone baffles block diagonal shortcuts; the central passage and side aisles keep every mirror accessible. Avoid the two pits.
 
 ## Build and tests
 
@@ -39,6 +40,8 @@ The first configuration downloads GLFW, GLM and GLAD. For the already populated 
 
 `presentation_build` creates `build-desktop/presentation` with the executable, compiler runtime DLLs, shaders and required assets. The folder can be copied as a unit; no source tree is required.
 
-Optional desktop checks: configure `-DENABLE_RENDER_SMOKE_TESTS=ON`. These hidden-window tests require a working OpenGL desktop. The game also accepts `--smoke --level 1` (or 2/3), `--screen start|pause|controls|victory`, and `--capture image.ppm` for validation captures.
+Optional desktop checks: configure `-DENABLE_RENDER_SMOKE_TESTS=ON`. These hidden-window tests require a working OpenGL desktop. The game also accepts `--smoke --level 1` (or 2/3), `--screen start|pause|controls|victory`, `--solved`, `--view ruby|door`, and `--capture image.ppm` for validation captures. `--solved` and close-up views apply only in smoke mode. Run `python tools/CapturePresentation.py` to generate the reviewed PNG screenshots in `docs/screenshots`.
 
 Ranger uses the supplied KayKit `Idle_A` and `Walking_A` clips retargeted by matching joint names with CPU skinning. Incompatible/missing clips use the static character. Audio uses existing assets through miniaudio and becomes silent if an audio device is unavailable. The supplied MP4 reflection chime is not used; existing WAV/OGG effects cover interactions instead.
+
+The HUD shows the nearby mirror angle to one decimal place and the number of sealed rubies. Use Shift for precise alignment. Every required reflection is enforced by geometry; no rotation count or hidden completion gate is used. See [puzzle verification](PUZZLE_VERIFICATION.md).

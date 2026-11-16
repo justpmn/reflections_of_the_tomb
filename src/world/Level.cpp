@@ -201,6 +201,7 @@ LoadResult loadLevelFromString(const std::string& text) {
             while (ss >> key) {
                 if (key == "angle")         ss >> L.mirrors[i].angleDeg;
                 else if (key == "solution") { ss >> L.mirrors[i].solutionDeg; L.mirrors[i].hasSolution = true; }
+                else if (key == "alternate") { ss >> L.mirrors[i].alternateSolutionDeg; L.mirrors[i].hasAlternateSolution = true; }
                 else if (key == "fixed")    L.mirrors[i].rotatable = false;
                 else err("unknown mirror option '" + key + "'");
             }
@@ -325,9 +326,19 @@ GridBeam traceBeamOnGrid(const Level& L, int lightIndex, bool useSolution) {
 
 bool isSolvable(const Level& L, std::vector<std::string>* why) {
     std::set<int> lit;
-    for (int i = 0; i < (int)L.lights.size(); ++i) {
-        GridBeam b = traceBeamOnGrid(L, i, true);
-        if (b.hitRuby >= 0) lit.insert(b.hitRuby);
+    // Permanent sealing permits a solution sequence. Alternate designer poses
+    // are verification metadata; runtime gameplay still uses continuous tracing.
+    std::vector<Level> poses{L};
+    for(size_t i=0;i<L.mirrors.size();++i) if(L.mirrors[i].hasAlternateSolution) {
+        const auto count=poses.size();
+        for(size_t p=0;p<count;++p) {
+            auto alternative=poses[p];alternative.mirrors[i].solutionDeg=L.mirrors[i].alternateSolutionDeg;
+            poses.push_back(std::move(alternative));
+        }
+    }
+    for(const auto& pose:poses) for(int i=0;i<(int)pose.lights.size();++i) {
+        const auto beam=traceBeamOnGrid(pose,i,true);
+        if(beam.hitRuby>=0) lit.insert(beam.hitRuby);
     }
     bool ok = true;
     for (size_t d = 0; d < L.doors.size(); ++d)

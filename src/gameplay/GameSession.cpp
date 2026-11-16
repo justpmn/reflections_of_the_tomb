@@ -1,5 +1,6 @@
 #include "GameSession.h"
 #include "world/TempleMesh.h"
+#include "world/WorldMetrics.h"
 #include <algorithm>
 #include <cmath>
 
@@ -19,9 +20,12 @@ bool GameSession::initializeLevel() {
     mirrors.clear(); rubies.clear(); doors.assign(l.doors.size(), Door{});
     traps.assign(l.traps.size(), Trap{}); walls.clear(); obstacles.clear(); beams.clear();
     doorLift = 0;
+    trapExtension.assign(traps.size(),1.f);
+
     for (const auto& m : l.mirrors)
-        mirrors.emplace_back(l.cellCenterXZ(m.cell), 1.3f, m.angleDeg, -80.f, 80.f);
+        mirrors.emplace_back(l.cellCenterXZ(m.cell), metrics::mirrorLength, m.angleDeg, -80.f, 80.f);
     for (const auto& r : l.rubies) { (void)r; rubies.emplace_back(true); }
+    rubySealing.assign(rubies.size(),0.f);
     for (const auto& b : world::buildStaticColliders(l)) {
         obstacles.push_back({b.min.x, b.max.x, b.min.z, b.max.z});
         walls.push_back({{b.min.x,b.min.z},{b.max.x,b.min.z}});
@@ -34,9 +38,9 @@ bool GameSession::initializeLevel() {
         const auto p = l.cellCenterXZ(cell);
         obstacles.push_back({p.x-radius,p.x+radius,p.y-radius,p.y+radius});
     };
-    for (const auto& m : l.mirrors) pedestal(m.cell,.46f);
-    for (const auto& r : l.rubies) pedestal(r.cell,.63f);
-    for (const auto& e : l.lights) pedestal(e.cell,.30f);
+    for (const auto& m : l.mirrors) pedestal(m.cell,.53f);
+    for (const auto& r : l.rubies) pedestal(r.cell,.675f);
+    for (const auto& e : l.lights) pedestal(e.cell,.34f);
     trace();
     return true;
 }
@@ -45,7 +49,7 @@ void GameSession::trace() {
     const auto& l = levels.current();
     beams.clear();
     std::vector<RubyTarget> targets;
-    for (const auto& r : l.rubies) targets.push_back({l.cellCenter(r.cell,1.3f), .38f, true});
+    for (const auto& r : l.rubies) targets.push_back({l.cellCenter(r.cell,metrics::beamHeight), metrics::rubyRadius, true});
     auto blockers = walls;
     for (size_t i=0; i<doors.size(); ++i) if (!doors[i].isOpen()) {
         const auto p = l.cellCenterXZ(l.doors[i].cell);
@@ -54,7 +58,7 @@ void GameSession::trace() {
     for (const auto& light : l.lights) {
         const auto d = world::dirToVec(light.dir);
         const auto hit = BeamTracer::traceWithRubies(l.cellCenterXZ(light.cell),
-            {d.x,d.z}, mirrors, targets, 12, 200, 1.3f, blockers);
+            {d.x,d.z}, mirrors, targets, 12, 200, metrics::beamHeight, blockers);
         beams.insert(beams.end(),hit.path.begin(),hit.path.end());
         if (hit.hitRubyIndex >= 0) rubies.at(hit.hitRubyIndex).hitByLight();
     }
@@ -105,10 +109,20 @@ void GameSession::update(float x,float z,float dt) {
     }
     player.update(x,z,dt,{0,l.width*l.cellSize,0,l.height*l.cellSize},solid);
     doorLift = std::min(1.f,doorLift+(solved()?dt:0.f));
+    for(size_t i=0;i<traps.size();++i)
+        trapExtension[i]=std::clamp(trapExtension[i]+(traps[i].isActive()?1.f:-1.f)*dt*2.f,0.f,1.f);
+    for(size_t i=0;i<rubies.size();++i) if(rubies[i].isActivated())
+        rubySealing[i]=std::min(1.f,rubySealing[i]+dt*1.8f);
     const auto p=player.position();
     const auto cell=l.worldToCell({p.x,0,p.z});
     const int t=l.trapAt(cell);
-    if (l.isPit(cell) || (t>=0 && traps[t].isActive())) {
+    bool onSpikes=false;
+    if(t>=0&&traps[t].isActive()) {
+        const auto centre=l.cellCenterXZ(l.traps[t].cell);
+        const float reach=.55f+player.radius(); // Authored spike mesh: 2.2 units at half scale.
+        onSpikes=std::abs(p.x-centre.x)<reach&&std::abs(p.z-centre.y)<reach;
+    }
+    if (l.isPit(cell) || onSpikes) {
         ++deaths;
         const auto spawn=l.cellCenterXZ(l.playerSpawn);
         player=player3d::PlayerMovement3D({spawn.x,spawn.y},4.f,.28f); return;

@@ -38,6 +38,8 @@ struct MirrorSpawn {
     float solutionDeg = 0.0f;    // designer's answer, used by the solvability check
     bool  hasSolution = false;
     bool  rotatable   = true;
+    float alternateSolutionDeg = 0.0f;
+    bool hasAlternateSolution = false;
 };
 
 struct RubySpawn { glm::ivec2 cell{0}; };

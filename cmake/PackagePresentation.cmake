@@ -13,9 +13,11 @@ endforeach()
 file(COPY "${SOURCE}/shaders" DESTINATION "${DESTINATION}")
 file(COPY "${SOURCE}/assets/levels" DESTINATION "${DESTINATION}/assets")
 file(COPY "${SOURCE}/assets/audio" DESTINATION "${DESTINATION}/assets")
+file(COPY "${SOURCE}/assets/ui" DESTINATION "${DESTINATION}/assets")
 foreach(model models/mirrors/mirror_complete.glb models/characters/ranger/Ranger.glb
     models/environment/doors/temple_sliding_door.glb models/traps/spike_trap.glb
     models/ruby/ruby_pedestal_floating.glb
+    models/ruby/ruby_pedestal_floatingmaster.glb models/ruby/ruby_pedestal_sealing.glb
     animations/characters/kaykit_medium/Rig_Medium_General.glb
     animations/characters/kaykit_medium/Rig_Medium_MovementBasic.glb)
     get_filename_component(directory "${model}" DIRECTORY)
@@ -26,6 +28,8 @@ foreach(asset floor_tile_large.gltf floor_tile_large.bin wall.gltf wall.bin
     pillar_decorated.gltf pillar_decorated.bin dungeon_texture.png)
     file(COPY "${SOURCE}/${kit}/${asset}" DESTINATION "${DESTINATION}/${kit}")
 endforeach()
-file(COPY "${SOURCE}/docs/PLAYING.md" "${SOURCE}/docs/THIRD_PARTY_AUDIO.md" DESTINATION "${DESTINATION}")
+file(COPY "${SOURCE}/docs/PLAYING.md" "${SOURCE}/docs/THIRD_PARTY_AUDIO.md"
+    "${SOURCE}/docs/INTEGRATION_STATUS.md" "${SOURCE}/docs/PUZZLE_VERIFICATION.md" DESTINATION "${DESTINATION}")
+file(COPY "${SOURCE}/docs/screenshots" DESTINATION "${DESTINATION}")
 file(WRITE "${DESTINATION}/Play.cmd" "@echo off\r\ncd /d \"%~dp0\"\r\nreflections_of_the_tomb.exe\r\n")
 message(STATUS "Presentation build ready: ${DESTINATION}")

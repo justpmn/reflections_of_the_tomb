@@ -1,0 +1,26 @@
+"""Render real OpenGL validation captures and encode their RGB readback as PNG."""
+import pathlib,subprocess,struct,zlib
+root=pathlib.Path(__file__).resolve().parents[1]
+output=root/'docs/screenshots'
+output.mkdir(parents=True,exist_ok=True)
+exe=root/'build-desktop/reflections_of_the_tomb.exe'
+def chunk(tag,data):
+ return struct.pack('>I',len(data))+tag+data+struct.pack('>I',zlib.crc32(tag+data)&0xffffffff)
+def convert(ppm,png):
+ magic,dimensions,maximum,data=ppm.read_bytes().split(b'\n',3)
+ assert magic==b'P6' and maximum==b'255'
+ w,h=map(int,dimensions.split());assert len(data)==w*h*3
+ rows=b''.join(b'\0'+data[y*w*3:(y+1)*w*3] for y in range(h))
+ png.write_bytes(b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(rows,6))+chunk(b'IEND',b''))
+cases=[('menu',['--screen','start'])]
+for level in range(1,4):
+ cases += [(f'level{level}',['--level',str(level)]),(f'level{level}-open',['--level',str(level),'--solved'])]
+cases += [('ruby-floating',['--view','ruby']),('ruby-sealed',['--view','ruby','--solved']),('door-closed',['--view','door']),('door-open',['--view','door','--solved'])]
+cases += [(screen,['--screen',screen]) for screen in ['pause','controls','victory']]
+for name,args in cases:
+ ppm=root/'build-desktop'/f'review-{name}.ppm'
+ result=subprocess.run([str(exe),'--smoke',*args,'--capture',str(ppm)],cwd=root,capture_output=True,text=True,timeout=30)
+ (root/'build-desktop'/f'review-{name}.log').write_text(result.stdout+result.stderr)
+ if result.returncode:raise RuntimeError(f'{name}: {result.returncode}\n{result.stdout}\n{result.stderr}')
+ convert(ppm,output/f'{name}.png')
+ print('Captured',name,flush=True)

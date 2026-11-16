@@ -1,4 +1,5 @@
 #include "gameplay/GameSession.h"
+#include "world/WorldMetrics.h"
 #include <iostream>
 #include <stdexcept>
 #include <queue>
@@ -56,14 +57,24 @@ int main() {
             const auto l=g.levels.current();
             for(size_t i=0;i<g.mirrors.size();++i) g.mirrors[i].setAngle(l.mirrors[i].solutionDeg);
             g.trace();
+            for(size_t i=0;i<l.mirrors.size();++i) if(l.mirrors[i].hasAlternateSolution) {
+                g.mirrors[i].setAngle(l.mirrors[i].alternateSolutionDeg);g.trace();
+            }
             require(g.solved(),"Actual BeamTracer solution must unlock every required door");
             for(const auto& ruby:g.rubies) require(ruby.isActivated(),"Every ruby must be reached by physical beams");
             for(const auto& trap:g.traps) require(!trap.isActive(),"Linked traps deactivate");
+            for(int frame=0;frame<25;++frame) g.update(0,0,.05f);
+            require(g.doorLift==1.f,"Unlocked door animation reaches its fully open pose");
+            for(float extension:g.trapExtension) require(extension==0.f,"Deactivated spikes fully retract");
+            for(float sealing:g.rubySealing) require(sealing==1.f,"Activated ruby reaches sealing pose");
             // Solutions must include the intended number of reflections, not a direct shortcut.
             require(g.beams.size()>=l.mirrors.size()+l.lights.size(),"Real reflected path segment count");
-            for(const auto& beam:g.beams) require(std::abs(beam.start.y-1.3f)<.001f,"Beam height matches world targets");
+            for(const auto& beam:g.beams) require(std::abs(beam.start.y-metrics::beamHeight)<.001f,"Beam height matches world targets");
             require(g.reset(),"Reset current chamber");
             require(!g.solved(),"Reset closes doors and clears ruby activation");
+            require(g.doorLift==0.f,"Reset restores closed door pose");
+            for(float extension:g.trapExtension) require(extension==1.f,"Reset restores active spike pose");
+            for(float sealing:g.rubySealing) require(sealing==0.f,"Reset restores floating ruby pose");
             for(size_t i=0;i<g.mirrors.size();++i) require(g.mirrors[i].getAngle()==l.mirrors[i].angleDeg,"Reset mirror angle");
             // Solve again using only walking and the proximity-gated rotate API.
             for(size_t i=0;i<g.mirrors.size();++i) {
@@ -77,6 +88,13 @@ int main() {
                 const float difference=l.mirrors[i].solutionDeg-g.mirrors[i].getAngle();
                 const int steps=static_cast<int>(std::abs(difference));
                 for(int step=0;step<steps;++step) require(g.rotate(difference<0?-1.f:1.f),"Nearby mirror must rotate");
+            }
+            for(size_t i=0;i<l.mirrors.size();++i) if(l.mirrors[i].hasAlternateSolution) {
+                walkTo(g,l.mirrors[i].cell+glm::ivec2(-1,0));
+                require(g.nearbyMirror()==int(i),"Return to final mirror for second ruby");
+                const float difference=l.mirrors[i].alternateSolutionDeg-g.mirrors[i].getAngle();
+                for(int step=0;step<int(std::abs(difference));++step)
+                    require(g.rotate(difference<0?-1.f:1.f),"Second sealing direction is accessible");
             }
             require(g.solved(),"Player-controlled mirror rotations solve the level");
             for(int i=0;i<25;++i) g.update(0,0,.05f);
@@ -93,7 +111,10 @@ int main() {
         require(g.deaths==1,"Active spikes cause respawn");
         const auto spawn=l.cellCenterXZ(l.playerSpawn);
         require(glm::length(glm::vec2(g.player.position().x,g.player.position().z)-spawn)<.01f,"Hazard respawn uses level spawn");
-        const auto pit=l.cellCenterXZ({6,4});
+        glm::ivec2 pitCell(-1);
+        for(int row=0;row<l.height;++row) for(int col=0;col<l.width;++col) if(l.isPit({col,row})) pitCell={col,row};
+        require(pitCell.x>=0,"Hazard chamber has an authored pit");
+        const auto pit=l.cellCenterXZ(pitCell);
         g.player=player3d::PlayerMovement3D({pit.x,pit.y});g.update(0,0,.016f);
         require(g.deaths==2,"Pits cause respawn");
     } catch(const std::exception& e) {std::cerr<<"FAIL "<<e.what()<<'\n';return 1;}
