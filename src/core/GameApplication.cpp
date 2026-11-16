@@ -288,9 +288,16 @@ int play(GLFWwindow* window,bool smoke,int preview,const std::string& screenshot
             }
             using Phase=GameSession::Phase;
             if(game.phase==Phase::Countdown){
-                ui.panel(-.18f,-.14f,.36f,.40f);
-                ui.centeredText(game.countdownLabel(),.18f,4.6f,1,.82f,.37f);
-                ui.centeredText("GET READY",-.20f,1.2f);
+                const bool go=game.phaseTime>=3.f;
+                const float age=go?game.phaseTime-3.f:std::fmod(game.phaseTime,1.f);
+                const float t=std::clamp(age/.18f,0.f,1.f);
+                const float ease=t*t*(3.f-2.f*t);
+                const float size=5.4f*(1.f+.16f*(1.f-ease));
+                const float dim=.14f*(go?1.f-std::clamp(age/.45f,0.f,1.f):1.f);
+                renderer.drawRectangle(-1,-1,2,2,.01f,.015f,.025f,dim);
+                // Centre the glyph quad as its brief scale pulse settles.
+                const float y=(80.f*16.f/46.f)*size/std::max(1,height);
+                ui.centeredText(game.countdownLabel(),y,size,1,.82f,.37f);
             }
             if(game.phase==Phase::FadeOut||game.phase==Phase::Title||game.phase==Phase::FadeIn){
                 const float alpha=game.phase==Phase::FadeOut?std::min(1.f,game.phaseTime/.45f):game.phase==Phase::FadeIn?std::max(0.f,1.f-game.phaseTime/.45f):1.f;

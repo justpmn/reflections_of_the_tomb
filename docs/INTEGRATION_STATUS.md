@@ -2,6 +2,10 @@
 
 Updated: 16 November 2026 (Africa/Nairobi). Branch: `integration`. No push or merge into main.
 
+## Final countdown visual adjustment
+
+Baseline: `4f54b7d`. Removed the opaque countdown panel and its secondary label. Large centered gold numerals and GO now sit directly over the 3D scene with 14-percent full-scene dimming. Each label settles from a 16-percent scale pulse over 0.18 seconds; GO also fades the dimming away. Glyph centering follows the animated size. This is confined to countdown drawing; simulation timing, start audio, input lockout and all campaign mechanics remain unchanged. Release rebuild and all 63 CTest tests passed (38.90s; 28 graphics checks), including the native five-level replay and held-input/countdown pause checks. Regenerated 41 local verification PNGs and visually inspected `build-desktop/polish-screenshots/countdown.png`: scene remains unobstructed and the centered gold numeral is readable without a panel. The presentation package was regenerated with these captures; its countdown smoke check also passed from the documentation directory with only Windows directories on PATH (`GL=0`).
+
 ## Final gameplay polish
 
 Baseline: `b591380`. Rollback tag `integration-before-final-polish` was created before editing. Existing five-level data, mirror geometry, BeamTracer, audio and assets are retained.
@@ -43,7 +47,7 @@ A straight crossing including the Ranger footprint requires about 0.64 seconds a
 
 ## Verification
 
-- Release build passed. Complete suite: **63/63 tests passed**, including **28 graphics-labelled checks**. Latest complete run: **38.81 seconds**.
+- Release build passed. Complete suite: **63/63 tests passed**, including **28 graphics-labelled checks**. Latest complete run: **38.90 seconds**.
 - Existing tests remain enabled. New coverage includes state transitions, smooth motion, 30/60/144 FPS equivalence, reaction/crossing margins, safe overlap, raised contact, circle-corner rejection, seal preservation, independent offsets, disable/reset, and authored phase restoration.
 - Level-manager coverage confirms the third chamber is no longer last and the fifth is last. All five authored puzzles pass loader/grid design checks and real continuous BeamTracer necessity checks.
 - Headless campaign walks to every mirror using real movement/collision and proximity rotation, then through all five exits, with zero hazard deaths. Additional full runs shift timed phases by 7.25 and 19.1 seconds and also finish safely.
